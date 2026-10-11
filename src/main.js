@@ -43,6 +43,7 @@ app.innerHTML = `
           <strong id="menuBestScore">0</strong>
         </div>
         <button id="startButton" class="primary-button" type="button">START RUN</button>
+        <button id="menuSoundButton" class="secondary-button sound-toggle-button" type="button" aria-pressed="true">SOUND: ON</button>
         <div class="menu-instructions">
           <span><b>MOVE</b> A/D or ← →</span>
           <span><b>JUMP</b> Space or ↑</span>
@@ -52,12 +53,17 @@ app.innerHTML = `
       </div>
     </div>
 
+    <div class="countdown-overlay hidden" id="countdownOverlay" aria-live="assertive">
+      <strong id="countdownText">3</strong>
+    </div>
+
     <div class="screen-overlay hidden" id="pauseMenu">
       <div class="menu-card compact-card">
         <p class="eyebrow">TAKE A BREATHER</p>
         <h1 class="overlay-title">PAUSED</h1>
         <p class="menu-intro">Your run is waiting.</p>
         <button id="resumeButton" class="primary-button" type="button">RESUME</button>
+        <button id="pauseSoundButton" class="secondary-button sound-toggle-button" type="button" aria-pressed="true">SOUND: ON</button>
         <button id="restartFromPauseButton" class="secondary-button" type="button">RESTART RUN</button>
         <button id="mainMenuFromPauseButton" class="text-button" type="button">MAIN MENU</button>
       </div>
@@ -106,8 +112,113 @@ const mainMenuFromPauseButton = document.querySelector('#mainMenuFromPauseButton
 const mainMenuAfterOverButton = document.querySelector('#mainMenuAfterOverButton');
 const menuBestScoreEl = document.querySelector('#menuBestScore');
 const gameOverBestScoreEl = document.querySelector('#gameOverBestScore');
+const menuSoundButton = document.querySelector('#menuSoundButton');
+const pauseSoundButton = document.querySelector('#pauseSoundButton');
+const countdownOverlay = document.querySelector('#countdownOverlay');
+const countdownText = document.querySelector('#countdownText');
 
 const HIGH_SCORE_KEY = 'indangSurfersHighScore';
+const SOUND_SETTING_KEY = 'indangSurfersSoundEnabled';
+
+function loadSoundSetting() {
+  try {
+    return localStorage.getItem(SOUND_SETTING_KEY) !== 'false';
+  } catch {
+    return true;
+  }
+}
+
+function saveSoundSetting(value) {
+  try {
+    localStorage.setItem(SOUND_SETTING_KEY, String(value));
+  } catch {
+    // Sound preference still applies until the page is closed.
+  }
+}
+
+let soundEnabled = loadSoundSetting();
+let audioContext = null;
+
+function initAudio() {
+  const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextConstructor) return null;
+
+  if (!audioContext) {
+    try {
+      audioContext = new AudioContextConstructor();
+    } catch {
+      return null;
+    }
+  }
+
+  if (audioContext.state === 'suspended') {
+    audioContext.resume().catch(() => {});
+  }
+
+  return audioContext;
+}
+
+function playSound(name) {
+  if (!soundEnabled) return;
+
+  const presets = {
+    coin: { start: 920, end: 1450, duration: 0.13, type: 'sine', volume: 0.045 },
+    jump: { start: 280, end: 540, duration: 0.16, type: 'triangle', volume: 0.035 },
+    slide: { start: 380, end: 145, duration: 0.18, type: 'sawtooth', volume: 0.022 },
+    crash: { start: 190, end: 42, duration: 0.38, type: 'sawtooth', volume: 0.055 },
+    countdown: { start: 620, end: 510, duration: 0.12, type: 'square', volume: 0.022 },
+    go: { start: 650, end: 1120, duration: 0.24, type: 'triangle', volume: 0.045 },
+    pause: { start: 440, end: 310, duration: 0.11, type: 'sine', volume: 0.025 },
+    resume: { start: 360, end: 620, duration: 0.13, type: 'sine', volume: 0.025 },
+  };
+
+  const preset = presets[name];
+  if (!preset) return;
+
+  const context = initAudio();
+  if (!context) return;
+
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+  const now = context.currentTime;
+
+  oscillator.type = preset.type;
+  oscillator.frequency.setValueAtTime(preset.start, now);
+  oscillator.frequency.exponentialRampToValueAtTime(
+    Math.max(1, preset.end),
+    now + preset.duration
+  );
+
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(preset.volume, now + 0.012);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + preset.duration);
+
+  oscillator.connect(gain);
+  gain.connect(context.destination);
+  oscillator.start(now);
+  oscillator.stop(now + preset.duration + 0.02);
+}
+
+function updateSoundUI() {
+  const label = soundEnabled ? 'SOUND: ON' : 'SOUND: OFF';
+  for (const button of [menuSoundButton, pauseSoundButton]) {
+    button.textContent = label;
+    button.setAttribute('aria-pressed', String(soundEnabled));
+  }
+}
+
+function toggleSound() {
+  soundEnabled = !soundEnabled;
+  saveSoundSetting(soundEnabled);
+  updateSoundUI();
+
+  if (soundEnabled) {
+    initAudio();
+    playSound('coin');
+  }
+}
+
+updateSoundUI();
 
 function loadBestScore() {
   try {
@@ -761,6 +872,9 @@ let coinCount = 0;
 let gameOver = false;
 let hasStarted = false;
 let isPaused = false;
+let countdownActive = false;
+let countdownElapsed = 0;
+let lastCountdownLabel = '';
 let score = 0;
 let elapsedTime = 0;
 let speed = 16;
@@ -769,7 +883,7 @@ let bestScore = loadBestScore();
 updateBestScoreUI();
 
 function moveLane(direction) {
-  if (!hasStarted || gameOver || isPaused) return;
+  if (!hasStarted || gameOver || isPaused || countdownActive) return;
 
   targetLane = THREE.MathUtils.clamp(
     targetLane + direction,
@@ -779,15 +893,17 @@ function moveLane(direction) {
 }
 
 function jump() {
-  if (!hasStarted || gameOver || isPaused || slideTime > 0 || jumpHeight > 0) return;
+  if (!hasStarted || gameOver || isPaused || countdownActive || slideTime > 0 || jumpHeight > 0) return;
 
   jumpVelocity = 9.8;
+  playSound('jump');
 }
 
 function slide() {
-  if (!hasStarted || gameOver || isPaused || jumpHeight > 0.1) return;
+  if (!hasStarted || gameOver || isPaused || countdownActive || jumpHeight > 0.1) return;
 
   slideTime = 0.72;
+  playSound('slide');
 }
 
 function handleAction(action) {
@@ -906,7 +1022,10 @@ function finishRun() {
 
   gameOver = true;
   isPaused = false;
+  countdownActive = false;
+  countdownOverlay.classList.add('hidden');
   recordBestScore();
+  playSound('crash');
 
   finalMessageEl.textContent =
     `Score: ${Math.floor(score)} | Coins: ${coinCount}`;
@@ -917,9 +1036,15 @@ function finishRun() {
 
 function startRun() {
   if (hasStarted && !gameOver) recordBestScore();
+  initAudio();
   resetGame();
   hasStarted = true;
   isPaused = false;
+  countdownActive = true;
+  countdownElapsed = 0;
+  lastCountdownLabel = '';
+  countdownText.textContent = '3';
+  countdownOverlay.classList.remove('hidden');
   shell.classList.remove('is-menu');
   shell.classList.add('is-playing');
   mainMenuEl.classList.add('hidden');
@@ -927,16 +1052,45 @@ function startRun() {
   gameOverEl.classList.add('hidden');
 }
 
+function updateCountdown(delta) {
+  countdownElapsed += delta;
+
+  let label;
+  if (countdownElapsed < 0.8) {
+    label = '3';
+  } else if (countdownElapsed < 1.6) {
+    label = '2';
+  } else if (countdownElapsed < 2.4) {
+    label = '1';
+  } else if (countdownElapsed < 2.9) {
+    label = 'GO!';
+  } else {
+    countdownActive = false;
+    countdownOverlay.classList.add('hidden');
+    return;
+  }
+
+  if (label !== lastCountdownLabel) {
+    lastCountdownLabel = label;
+    countdownText.textContent = label;
+    playSound(label === 'GO!' ? 'go' : 'countdown');
+  }
+}
+
 function pauseGame() {
   if (!hasStarted || gameOver || isPaused) return;
   isPaused = true;
   pauseMenuEl.classList.remove('hidden');
+  if (countdownActive) countdownOverlay.classList.add('hidden');
+  playSound('pause');
 }
 
 function resumeGame() {
   if (!hasStarted || gameOver || !isPaused) return;
   isPaused = false;
   pauseMenuEl.classList.add('hidden');
+  if (countdownActive) countdownOverlay.classList.remove('hidden');
+  playSound('resume');
 }
 
 function returnToMainMenu() {
@@ -980,6 +1134,11 @@ function resetGame() {
   gameOver = false;
   hasStarted = false;
   isPaused = false;
+  countdownActive = false;
+  countdownElapsed = 0;
+  lastCountdownLabel = '';
+  countdownText.textContent = '3';
+  countdownOverlay.classList.add('hidden');
   scoreEl.textContent = '00000';
   coinCountEl.textContent = '0';
   gameOverEl.classList.add('hidden');
@@ -988,6 +1147,8 @@ function resetGame() {
 
 startButton.addEventListener('click', startRun);
 restartButton.addEventListener('click', startRun);
+menuSoundButton.addEventListener('click', toggleSound);
+pauseSoundButton.addEventListener('click', toggleSound);
 resumeButton.addEventListener('click', resumeGame);
 restartFromPauseButton.addEventListener('click', startRun);
 mainMenuFromPauseButton.addEventListener('click', returnToMainMenu);
@@ -1145,6 +1306,7 @@ function updateGame(delta) {
     if (sameLane && closeEnough) {
       coinCount++;
       score += 100;
+      playSound('coin');
 
       scene.remove(coin.mesh);
       coins.splice(i, 1);
@@ -1164,7 +1326,11 @@ function animate() {
   const delta = Math.min(clock.getDelta(), 0.05);
 
   if (hasStarted && !gameOver && !isPaused) {
-    updateGame(delta);
+    if (countdownActive) {
+      updateCountdown(delta);
+    } else {
+      updateGame(delta);
+    }
   }
 
   renderer.render(scene, camera);
