@@ -830,7 +830,27 @@ const obstacles = [];
 const obstacleMaterials = {
   body: new THREE.MeshStandardMaterial({ color: 0xf06a37 }),
   stripe: new THREE.MeshStandardMaterial({ color: 0xffe9c9 }),
-  dark: new THREE.MeshStandardMaterial({ color: 0x4a4141 }),
+  dark: new THREE.MeshStandardMaterial({ color: 0x343b43 }),
+  glass: new THREE.MeshStandardMaterial({
+    color: 0x72cbe8,
+    metalness: 0.15,
+    roughness: 0.28,
+  }),
+  tire: new THREE.MeshStandardMaterial({ color: 0x20252b, roughness: 0.95 }),
+  rim: new THREE.MeshStandardMaterial({ color: 0xb8c6ca, metalness: 0.6, roughness: 0.35 }),
+  grille: new THREE.MeshStandardMaterial({ color: 0x303a42, metalness: 0.25, roughness: 0.6 }),
+  headlight: new THREE.MeshStandardMaterial({
+    color: 0xffe39a,
+    emissive: 0x8b6c24,
+    emissiveIntensity: 0.35,
+  }),
+  jeepneyTeal: new THREE.MeshStandardMaterial({ color: 0x1a9da3, roughness: 0.72 }),
+  jeepneyYellow: new THREE.MeshStandardMaterial({ color: 0xf1bd38, roughness: 0.72 }),
+  jeepneyRed: new THREE.MeshStandardMaterial({ color: 0xd94d3f, roughness: 0.72 }),
+  jeepneyGreen: new THREE.MeshStandardMaterial({ color: 0x4a9a59, roughness: 0.72 }),
+  tricycleBlue: new THREE.MeshStandardMaterial({ color: 0x2689bd, roughness: 0.7 }),
+  tricycleRed: new THREE.MeshStandardMaterial({ color: 0xd74e43, roughness: 0.7 }),
+  tricycleAccent: new THREE.MeshStandardMaterial({ color: 0xf4cf56, roughness: 0.65 }),
 };
 
 const barrierGeometry = new THREE.BoxGeometry(1.5, 1.2, 0.8);
@@ -838,6 +858,238 @@ const stripeGeometry = new THREE.BoxGeometry(1.2, 0.16, 0.035);
 const postGeometry = new THREE.BoxGeometry(0.14, 1.72, 0.3);
 const overheadGeometry = new THREE.BoxGeometry(1.75, 0.35, 0.45);
 const overheadStripeGeometry = new THREE.BoxGeometry(1.48, 0.08, 0.035);
+
+// Shared low-poly vehicle parts keep spawning traffic lightweight.
+const vehicleWheelGeometry = new THREE.CylinderGeometry(0.22, 0.22, 0.16, 8);
+const vehicleRimGeometry = new THREE.CylinderGeometry(0.105, 0.105, 0.175, 8);
+const jeepneyBodyGeometry = new THREE.BoxGeometry(1.55, 0.76, 2.0);
+const jeepneyRoofGeometry = new THREE.BoxGeometry(1.57, 0.13, 1.93);
+const jeepneyFrontGlassGeometry = new THREE.BoxGeometry(1.12, 0.31, 0.045);
+const jeepneySideGlassGeometry = new THREE.BoxGeometry(0.04, 0.27, 0.4);
+const jeepneySideStripeGeometry = new THREE.BoxGeometry(0.04, 0.12, 1.48);
+const jeepneyGrilleGeometry = new THREE.BoxGeometry(0.52, 0.15, 0.045);
+const jeepneyLightGeometry = new THREE.BoxGeometry(0.13, 0.13, 0.05);
+const jeepneyDestinationGeometry = new THREE.BoxGeometry(0.62, 0.11, 0.045);
+const jeepneyRackRailGeometry = new THREE.BoxGeometry(0.055, 0.075, 1.25);
+const jeepneyRackCrossbarGeometry = new THREE.BoxGeometry(1.2, 0.065, 0.06);
+const tricycleBikeBodyGeometry = new THREE.BoxGeometry(0.43, 0.43, 1.02);
+const tricycleSeatGeometry = new THREE.BoxGeometry(0.3, 0.12, 0.38);
+const tricycleHandlebarGeometry = new THREE.BoxGeometry(0.48, 0.055, 0.06);
+const tricycleSteeringGeometry = new THREE.BoxGeometry(0.075, 0.24, 0.075);
+const tricycleSidecarGeometry = new THREE.BoxGeometry(0.78, 0.55, 1.08);
+const tricycleSidecarRoofGeometry = new THREE.BoxGeometry(0.82, 0.1, 1.1);
+const tricycleFrontGlassGeometry = new THREE.BoxGeometry(0.57, 0.25, 0.04);
+const tricycleSideGlassGeometry = new THREE.BoxGeometry(0.035, 0.22, 0.42);
+const tricycleHeadlightGeometry = new THREE.BoxGeometry(0.14, 0.14, 0.06);
+
+const jeepneyPaints = [
+  obstacleMaterials.jeepneyTeal,
+  obstacleMaterials.jeepneyYellow,
+  obstacleMaterials.jeepneyRed,
+  obstacleMaterials.jeepneyGreen,
+];
+
+function addVehicleWheel(group, x, y, z) {
+  const tire = addMesh(
+    vehicleWheelGeometry,
+    obstacleMaterials.tire,
+    group,
+    x,
+    y,
+    z
+  );
+  tire.rotation.z = Math.PI / 2;
+
+  const rim = addMesh(
+    vehicleRimGeometry,
+    obstacleMaterials.rim,
+    group,
+    x,
+    y,
+    z
+  );
+  rim.rotation.z = Math.PI / 2;
+}
+
+function createJeepney(group) {
+  const paint = jeepneyPaints[Math.floor(Math.random() * jeepneyPaints.length)];
+
+  addMesh(jeepneyBodyGeometry, paint, group, 0, 0.68, 0);
+  addMesh(jeepneyRoofGeometry, paint, group, 0, 1.105, 0.015);
+
+  // The windshield and destination board face the oncoming player.
+  addMesh(
+    jeepneyFrontGlassGeometry,
+    obstacleMaterials.glass,
+    group,
+    0,
+    0.96,
+    -1.025
+  );
+  addMesh(
+    jeepneyDestinationGeometry,
+    obstacleMaterials.grille,
+    group,
+    0,
+    1.205,
+    -1.035
+  );
+  addMesh(
+    jeepneyGrilleGeometry,
+    obstacleMaterials.grille,
+    group,
+    0,
+    0.49,
+    -1.035
+  );
+
+  for (const x of [-0.57, 0.57]) {
+    addMesh(
+      jeepneyLightGeometry,
+      obstacleMaterials.headlight,
+      group,
+      x,
+      0.51,
+      -1.04
+    );
+  }
+
+  for (const side of [-1, 1]) {
+    addMesh(
+      jeepneySideStripeGeometry,
+      obstacleMaterials.tricycleAccent,
+      group,
+      side * 0.79,
+      0.66,
+      0.18
+    );
+
+    for (const z of [-0.49, 0.02, 0.53]) {
+      addMesh(
+        jeepneySideGlassGeometry,
+        obstacleMaterials.glass,
+        group,
+        side * 0.79,
+        0.94,
+        z
+      );
+    }
+
+    for (const z of [-0.63, 0.63]) {
+      addVehicleWheel(group, side * 0.79, 0.3, z);
+    }
+
+    addMesh(
+      jeepneyRackRailGeometry,
+      obstacleMaterials.grille,
+      group,
+      side * 0.62,
+      1.23,
+      0.02
+    );
+  }
+
+  for (const z of [-0.57, 0.59]) {
+    addMesh(
+      jeepneyRackCrossbarGeometry,
+      obstacleMaterials.grille,
+      group,
+      0,
+      1.23,
+      z
+    );
+  }
+}
+
+function createTricycle(group) {
+  const paint = Math.random() < 0.5
+    ? obstacleMaterials.tricycleBlue
+    : obstacleMaterials.tricycleRed;
+
+  // Motorcycle body and front assembly.
+  addMesh(tricycleBikeBodyGeometry, paint, group, -0.22, 0.61, 0.08);
+  addMesh(
+    tricycleSeatGeometry,
+    obstacleMaterials.dark,
+    group,
+    -0.22,
+    0.89,
+    0.32
+  );
+  addMesh(
+    tricycleSteeringGeometry,
+    obstacleMaterials.grille,
+    group,
+    -0.22,
+    0.78,
+    -0.47
+  );
+  addMesh(
+    tricycleHandlebarGeometry,
+    obstacleMaterials.grille,
+    group,
+    -0.22,
+    0.91,
+    -0.48
+  );
+  addMesh(
+    tricycleHeadlightGeometry,
+    obstacleMaterials.headlight,
+    group,
+    -0.22,
+    0.72,
+    -0.49
+  );
+
+  // Sidecar cabin, roof, and windows.
+  addMesh(
+    tricycleSidecarGeometry,
+    paint,
+    group,
+    0.48,
+    0.55,
+    0.17
+  );
+  addMesh(
+    tricycleSidecarRoofGeometry,
+    obstacleMaterials.tricycleAccent,
+    group,
+    0.48,
+    0.91,
+    0.15
+  );
+  addMesh(
+    tricycleFrontGlassGeometry,
+    obstacleMaterials.glass,
+    group,
+    0.48,
+    0.72,
+    -0.39
+  );
+  addMesh(
+    tricycleSideGlassGeometry,
+    obstacleMaterials.glass,
+    group,
+    0.88,
+    0.73,
+    0.16
+  );
+
+  for (const z of [-0.55, 0.55]) {
+    addVehicleWheel(group, -0.22, 0.25, z);
+  }
+  addVehicleWheel(group, 0.68, 0.22, 0.38);
+
+  // A small accent panel makes the sidecar read clearly at a distance.
+  addMesh(
+    new THREE.BoxGeometry(0.045, 0.1, 0.66),
+    obstacleMaterials.tricycleAccent,
+    group,
+    0.89,
+    0.49,
+    0.18
+  );
+}
 
 function createObstacle(lane, kind) {
   const group = new THREE.Group();
@@ -860,7 +1112,7 @@ function createObstacle(lane, kind) {
       0.7,
       0.42
     );
-  } else {
+  } else if (kind === 'overhead') {
     for (const x of [-0.72, 0.72]) {
       addMesh(
         postGeometry,
@@ -889,11 +1141,16 @@ function createObstacle(lane, kind) {
       1.8,
       0.24
     );
+  } else if (kind === 'jeepney') {
+    createJeepney(group);
+  } else if (kind === 'tricycle') {
+    createTricycle(group);
   }
 
   group.position.set(laneCenters[lane], 0, -72);
   group.userData.lane = lane;
   group.userData.kind = kind;
+  group.userData.weavePhase = Math.random() * Math.PI * 2;
 
   scene.add(group);
   obstacles.push(group);
@@ -913,7 +1170,19 @@ function spawnObstacle() {
 
   lastObstacleLane = lane;
 
-  const kind = Math.random() < 0.28 ? 'overhead' : 'barrier';
+  const roll = Math.random();
+  let kind = 'barrier';
+
+  if (roll < 0.24) {
+    kind = 'overhead';
+  } else if (roll < 0.52) {
+    kind = 'barrier';
+  } else if (roll < 0.78) {
+    kind = 'jeepney';
+  } else {
+    kind = 'tricycle';
+  }
+
   createObstacle(lane, kind);
   obstacleDelay = 1.4 + Math.random() * 0.35;
 }
@@ -1567,6 +1836,15 @@ function updateGame(delta) {
     const obstacle = obstacles[i];
     obstacle.position.z += speed * delta;
 
+    // Vehicles gently weave within their lane as they approach.
+    if (obstacle.userData.kind === 'jeepney' || obstacle.userData.kind === 'tricycle') {
+      const weaveAmount = obstacle.userData.kind === 'tricycle' ? 0.16 : 0.09;
+      obstacle.position.x = laneCenters[obstacle.userData.lane] +
+        Math.sin(elapsedTime * 1.2 + obstacle.userData.weavePhase) * weaveAmount;
+    } else {
+      obstacle.position.x = laneCenters[obstacle.userData.lane];
+    }
+
     const sameLane =
       Math.abs(playerGroup.position.x -
         laneCenters[obstacle.userData.lane]) < 0.85;
@@ -1579,8 +1857,11 @@ function updateGame(delta) {
 
       if (obstacle.userData.kind === 'barrier') {
         hitObstacle = jumpHeight < 1.22;
-      } else {
+      } else if (obstacle.userData.kind === 'overhead') {
         hitObstacle = slideTime <= 0;
+      } else {
+        // Jeepneys and tricycles block the lane, so dodge by switching lanes.
+        hitObstacle = true;
       }
 
       if (hitObstacle) {
