@@ -5,7 +5,7 @@ import './style.css';
 const app = document.querySelector('#app');
 
 app.innerHTML = `
-  <div class="game-shell">
+  <div class="game-shell is-menu">
     <header class="game-hud">
       <div class="brand">
         <span>INDANG</span>
@@ -22,6 +22,7 @@ app.innerHTML = `
           <strong id="coinCount">0</strong>
         </div>
       </div>
+      <button id="pauseButton" class="pause-button" type="button" aria-label="Pause game" title="Pause (Esc)">Ⅱ</button>
     </header>
 
     <div class="hint">
@@ -32,12 +33,47 @@ app.innerHTML = `
 
     <div class="location-chip">INDANG, CAVITE</div>
 
+    <div class="screen-overlay" id="mainMenu">
+      <div class="menu-card">
+        <p class="eyebrow">WELCOME TO</p>
+        <h1 class="menu-title"><span>INDANG</span><strong>SURFERS</strong></h1>
+        <p class="menu-intro">Run the roads of Indang, Cavite.</p>
+        <div class="best-score-panel">
+          <span>BEST SCORE</span>
+          <strong id="menuBestScore">0</strong>
+        </div>
+        <button id="startButton" class="primary-button" type="button">START RUN</button>
+        <div class="menu-instructions">
+          <span><b>MOVE</b> A/D or ← →</span>
+          <span><b>JUMP</b> Space or ↑</span>
+          <span><b>SLIDE</b> S or ↓</span>
+          <small>Press Esc to pause during a run.</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen-overlay hidden" id="pauseMenu">
+      <div class="menu-card compact-card">
+        <p class="eyebrow">TAKE A BREATHER</p>
+        <h1 class="overlay-title">PAUSED</h1>
+        <p class="menu-intro">Your run is waiting.</p>
+        <button id="resumeButton" class="primary-button" type="button">RESUME</button>
+        <button id="restartFromPauseButton" class="secondary-button" type="button">RESTART RUN</button>
+        <button id="mainMenuFromPauseButton" class="text-button" type="button">MAIN MENU</button>
+      </div>
+    </div>
+
     <div class="game-over hidden" id="gameOver">
       <div class="game-over-card">
         <p class="eyebrow">RUN ENDED</p>
         <h1>CRASHED!</h1>
         <p id="finalMessage">Ready for another run?</p>
+        <div class="best-score-panel game-over-best">
+          <span>BEST SCORE</span>
+          <strong id="gameOverBestScore">0</strong>
+        </div>
         <button id="restartButton" type="button">RUN AGAIN</button>
+        <button id="mainMenuAfterOverButton" class="secondary-button" type="button">MAIN MENU</button>
       </div>
     </div>
 
@@ -60,6 +96,40 @@ const coinCountEl = document.querySelector('#coinCount');
 const gameOverEl = document.querySelector('#gameOver');
 const finalMessageEl = document.querySelector('#finalMessage');
 const restartButton = document.querySelector('#restartButton');
+const mainMenuEl = document.querySelector('#mainMenu');
+const pauseMenuEl = document.querySelector('#pauseMenu');
+const startButton = document.querySelector('#startButton');
+const pauseButton = document.querySelector('#pauseButton');
+const resumeButton = document.querySelector('#resumeButton');
+const restartFromPauseButton = document.querySelector('#restartFromPauseButton');
+const mainMenuFromPauseButton = document.querySelector('#mainMenuFromPauseButton');
+const mainMenuAfterOverButton = document.querySelector('#mainMenuAfterOverButton');
+const menuBestScoreEl = document.querySelector('#menuBestScore');
+const gameOverBestScoreEl = document.querySelector('#gameOverBestScore');
+
+const HIGH_SCORE_KEY = 'indangSurfersHighScore';
+
+function loadBestScore() {
+  try {
+    const savedScore = Number.parseInt(localStorage.getItem(HIGH_SCORE_KEY) || '0', 10);
+    return Number.isFinite(savedScore) && savedScore > 0 ? savedScore : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function saveBestScore(value) {
+  try {
+    localStorage.setItem(HIGH_SCORE_KEY, String(value));
+  } catch {
+    // High score still works for the current session if storage is unavailable.
+  }
+}
+
+function updateBestScoreUI() {
+  menuBestScoreEl.textContent = String(bestScore);
+  gameOverBestScoreEl.textContent = String(bestScore);
+}
 
 // --------------------------------------------------
 // SCENE, CAMERA, AND RENDERER
@@ -499,12 +569,17 @@ let coinCount = 0;
 // --------------------------------------------------
 
 let gameOver = false;
+let hasStarted = false;
+let isPaused = false;
 let score = 0;
 let elapsedTime = 0;
 let speed = 16;
+let bestScore = loadBestScore();
+
+updateBestScoreUI();
 
 function moveLane(direction) {
-  if (gameOver) return;
+  if (!hasStarted || gameOver || isPaused) return;
 
   targetLane = THREE.MathUtils.clamp(
     targetLane + direction,
@@ -514,13 +589,13 @@ function moveLane(direction) {
 }
 
 function jump() {
-  if (gameOver || slideTime > 0 || jumpHeight > 0) return;
+  if (!hasStarted || gameOver || isPaused || slideTime > 0 || jumpHeight > 0) return;
 
   jumpVelocity = 9.8;
 }
 
 function slide() {
-  if (gameOver || jumpHeight > 0.1) return;
+  if (!hasStarted || gameOver || isPaused || jumpHeight > 0.1) return;
 
   slideTime = 0.72;
 }
@@ -536,19 +611,35 @@ function handleAction(action) {
 window.addEventListener('keydown', (event) => {
   const controls = [
     'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
-    'Space', 'KeyA', 'KeyD', 'KeyW', 'KeyS',
+    'Space', 'KeyA', 'KeyD', 'KeyW', 'KeyS', 'Escape', 'Enter',
   ];
 
   if (controls.includes(event.code)) {
     event.preventDefault();
   }
 
-  if (gameOver) {
-    if (event.code === 'Enter') resetGame();
+  if (event.code === 'Escape') {
+    if (isPaused) {
+      resumeGame();
+    } else {
+      pauseGame();
+    }
     return;
   }
 
   if (event.repeat) return;
+
+  if (gameOver) {
+    if (event.code === 'Enter') startRun();
+    return;
+  }
+
+  if (!hasStarted) {
+    if (event.code === 'Enter') startRun();
+    return;
+  }
+
+  if (isPaused) return;
 
   if (event.code === 'ArrowLeft' || event.code === 'KeyA') {
     moveLane(-1);
@@ -587,7 +678,7 @@ renderer.domElement.addEventListener('pointerdown', (event) => {
 });
 
 renderer.domElement.addEventListener('pointerup', (event) => {
-  if (!swipeStart || gameOver) return;
+  if (!swipeStart || !hasStarted || gameOver || isPaused) return;
 
   const dx = event.clientX - swipeStart.x;
   const dy = event.clientY - swipeStart.y;
@@ -613,10 +704,52 @@ function finishRun() {
   if (gameOver) return;
 
   gameOver = true;
-  finalMessageEl.textContent =
-    `Score: ${Math.floor(score)} | Coins: ${coinCount}`;
+  isPaused = false;
 
+  const finalScore = Math.floor(score);
+  if (finalScore > bestScore) {
+    bestScore = finalScore;
+    saveBestScore(bestScore);
+  }
+
+  updateBestScoreUI();
+  finalMessageEl.textContent =
+    `Score: ${finalScore} | Coins: ${coinCount}`;
+
+  pauseMenuEl.classList.add('hidden');
   gameOverEl.classList.remove('hidden');
+}
+
+function startRun() {
+  resetGame();
+  hasStarted = true;
+  isPaused = false;
+  shell.classList.remove('is-menu');
+  shell.classList.add('is-playing');
+  mainMenuEl.classList.add('hidden');
+  pauseMenuEl.classList.add('hidden');
+  gameOverEl.classList.add('hidden');
+}
+
+function pauseGame() {
+  if (!hasStarted || gameOver || isPaused) return;
+  isPaused = true;
+  pauseMenuEl.classList.remove('hidden');
+}
+
+function resumeGame() {
+  if (!hasStarted || gameOver || !isPaused) return;
+  isPaused = false;
+  pauseMenuEl.classList.add('hidden');
+}
+
+function returnToMainMenu() {
+  resetGame();
+  hasStarted = false;
+  isPaused = false;
+  shell.classList.remove('is-playing');
+  shell.classList.add('is-menu');
+  mainMenuEl.classList.remove('hidden');
 }
 
 function resetGame() {
@@ -648,12 +781,27 @@ function resetGame() {
   coinDelay = 2.5;
 
   gameOver = false;
+  hasStarted = false;
+  isPaused = false;
   scoreEl.textContent = '00000';
   coinCountEl.textContent = '0';
   gameOverEl.classList.add('hidden');
+  pauseMenuEl.classList.add('hidden');
 }
 
-restartButton.addEventListener('click', resetGame);
+startButton.addEventListener('click', startRun);
+restartButton.addEventListener('click', startRun);
+resumeButton.addEventListener('click', resumeGame);
+restartFromPauseButton.addEventListener('click', startRun);
+mainMenuFromPauseButton.addEventListener('click', returnToMainMenu);
+mainMenuAfterOverButton.addEventListener('click', returnToMainMenu);
+pauseButton.addEventListener('click', () => {
+  if (isPaused) {
+    resumeGame();
+  } else {
+    pauseGame();
+  }
+});
 
 // --------------------------------------------------
 // UPDATE LOOP
@@ -811,7 +959,7 @@ function animate() {
 
   const delta = Math.min(clock.getDelta(), 0.05);
 
-  if (!gameOver) {
+  if (hasStarted && !gameOver && !isPaused) {
     updateGame(delta);
   }
 
