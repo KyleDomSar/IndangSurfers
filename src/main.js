@@ -1385,6 +1385,7 @@ function resetGame() {
   magnetTimer = 0;
   shieldTimer = 0;
   multiplierTimer = 0;
+  shieldAura.visible = false;
   updatePowerupStatus();
 
   gameOver = false;
