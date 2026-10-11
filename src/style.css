@@ -588,3 +588,68 @@ button {
     font-size: 9px;
   }
 }
+
+
+/* Countdown and sound settings */
+.sound-toggle-button {
+  margin-top: 10px;
+}
+
+.countdown-overlay {
+  position: absolute;
+  z-index: 7;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  background: rgb(7 22 33 / 13%);
+}
+
+.countdown-overlay.hidden {
+  display: none;
+}
+
+.countdown-overlay strong {
+  display: grid;
+  place-items: center;
+  width: clamp(130px, 25vw, 210px);
+  aspect-ratio: 1;
+  border: 5px solid rgb(255 255 255 / 88%);
+  border-radius: 50%;
+  background: rgb(21 59 75 / 84%);
+  box-shadow:
+    0 0 0 12px rgb(255 225 109 / 18%),
+    0 12px 0 rgb(7 22 33 / 25%);
+  color: #ffe16d;
+  font-size: clamp(74px, 15vw, 128px);
+  font-weight: 1000;
+  letter-spacing: -4px;
+  line-height: 1;
+  text-shadow: 0 5px 0 rgb(0 0 0 / 18%);
+}
+
+.countdown-overlay strong {
+  animation: countdown-pop 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes countdown-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (max-width: 560px) {
+  .countdown-overlay strong {
+    width: 125px;
+    font-size: 78px;
+    border-width: 4px;
+    box-shadow:
+      0 0 0 8px rgb(255 225 109 / 18%),
+      0 8px 0 rgb(7 22 33 / 25%);
+  }
+}
