@@ -44,6 +44,7 @@ app.innerHTML = `
         </div>
         <button id="startButton" class="primary-button" type="button">START RUN</button>
         <button id="menuSoundButton" class="secondary-button sound-toggle-button" type="button" aria-pressed="true">SOUND: ON</button>
+        <button id="menuTestSoundButton" class="secondary-button sound-test-button" type="button">TEST SOUND</button>
         <div class="menu-instructions">
           <span><b>MOVE</b> A/D or ← →</span>
           <span><b>JUMP</b> Space or ↑</span>
@@ -64,6 +65,7 @@ app.innerHTML = `
         <p class="menu-intro">Your run is waiting.</p>
         <button id="resumeButton" class="primary-button" type="button">RESUME</button>
         <button id="pauseSoundButton" class="secondary-button sound-toggle-button" type="button" aria-pressed="true">SOUND: ON</button>
+        <button id="pauseTestSoundButton" class="secondary-button sound-test-button" type="button">TEST SOUND</button>
         <button id="restartFromPauseButton" class="secondary-button" type="button">RESTART RUN</button>
         <button id="mainMenuFromPauseButton" class="text-button" type="button">MAIN MENU</button>
       </div>
@@ -114,6 +116,8 @@ const menuBestScoreEl = document.querySelector('#menuBestScore');
 const gameOverBestScoreEl = document.querySelector('#gameOverBestScore');
 const menuSoundButton = document.querySelector('#menuSoundButton');
 const pauseSoundButton = document.querySelector('#pauseSoundButton');
+const menuTestSoundButton = document.querySelector('#menuTestSoundButton');
+const pauseTestSoundButton = document.querySelector('#pauseTestSoundButton');
 const countdownOverlay = document.querySelector('#countdownOverlay');
 const countdownText = document.querySelector('#countdownText');
 
@@ -138,65 +142,94 @@ function saveSoundSetting(value) {
 
 let soundEnabled = loadSoundSetting();
 let audioContext = null;
+let audioMasterGain = null;
+let audioCompressor = null;
 
 function initAudio() {
   const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
-  if (!AudioContextConstructor) return null;
+  if (!AudioContextConstructor) return Promise.resolve(null);
 
   if (!audioContext) {
     try {
       audioContext = new AudioContextConstructor();
+
+      // A master gain and compressor keep effects clearly audible without harsh peaks.
+      audioMasterGain = audioContext.createGain();
+      audioMasterGain.gain.value = 0.9;
+
+      audioCompressor = audioContext.createDynamicsCompressor();
+      audioCompressor.threshold.value = -16;
+      audioCompressor.knee.value = 12;
+      audioCompressor.ratio.value = 5;
+      audioCompressor.attack.value = 0.004;
+      audioCompressor.release.value = 0.16;
+
+      audioMasterGain.connect(audioCompressor);
+      audioCompressor.connect(audioContext.destination);
     } catch {
-      return null;
+      audioContext = null;
+      audioMasterGain = null;
+      audioCompressor = null;
+      return Promise.resolve(null);
     }
   }
 
-  if (audioContext.state === 'suspended') {
-    audioContext.resume().catch(() => {});
+  // Resume from a direct user gesture where possible. Sounds wait until audio is running.
+  if (audioContext.state !== 'running') {
+    return audioContext.resume()
+      .then(() => audioContext)
+      .catch(() => audioContext);
   }
 
-  return audioContext;
+  return Promise.resolve(audioContext);
 }
 
 function playSound(name) {
   if (!soundEnabled) return;
 
   const presets = {
-    coin: { start: 920, end: 1450, duration: 0.13, type: 'sine', volume: 0.045 },
-    jump: { start: 280, end: 540, duration: 0.16, type: 'triangle', volume: 0.035 },
-    slide: { start: 380, end: 145, duration: 0.18, type: 'sawtooth', volume: 0.022 },
-    crash: { start: 190, end: 42, duration: 0.38, type: 'sawtooth', volume: 0.055 },
-    countdown: { start: 620, end: 510, duration: 0.12, type: 'square', volume: 0.022 },
-    go: { start: 650, end: 1120, duration: 0.24, type: 'triangle', volume: 0.045 },
-    pause: { start: 440, end: 310, duration: 0.11, type: 'sine', volume: 0.025 },
-    resume: { start: 360, end: 620, duration: 0.13, type: 'sine', volume: 0.025 },
+    coin: { start: 880, end: 1480, duration: 0.18, type: 'sine', volume: 0.16 },
+    jump: { start: 260, end: 620, duration: 0.2, type: 'triangle', volume: 0.13 },
+    slide: { start: 420, end: 125, duration: 0.22, type: 'sawtooth', volume: 0.09 },
+    crash: { start: 175, end: 38, duration: 0.48, type: 'sawtooth', volume: 0.18 },
+    countdown: { start: 720, end: 590, duration: 0.16, type: 'square', volume: 0.10 },
+    go: { start: 620, end: 1240, duration: 0.28, type: 'triangle', volume: 0.16 },
+    pause: { start: 480, end: 300, duration: 0.14, type: 'sine', volume: 0.10 },
+    resume: { start: 350, end: 680, duration: 0.17, type: 'sine', volume: 0.11 },
+    test: { start: 540, end: 1080, duration: 0.34, type: 'triangle', volume: 0.17 },
   };
 
   const preset = presets[name];
   if (!preset) return;
 
-  const context = initAudio();
-  if (!context) return;
+  initAudio().then((context) => {
+    if (!context || !audioMasterGain || !soundEnabled) return;
 
-  const oscillator = context.createOscillator();
-  const gain = context.createGain();
-  const now = context.currentTime;
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    const now = context.currentTime;
+    const attack = Math.min(0.025, preset.duration * 0.18);
+    const releaseStart = Math.max(now + attack + 0.01, now + preset.duration * 0.62);
 
-  oscillator.type = preset.type;
-  oscillator.frequency.setValueAtTime(preset.start, now);
-  oscillator.frequency.exponentialRampToValueAtTime(
-    Math.max(1, preset.end),
-    now + preset.duration
-  );
+    oscillator.type = preset.type;
+    oscillator.frequency.setValueAtTime(preset.start, now);
+    oscillator.frequency.exponentialRampToValueAtTime(
+      Math.max(1, preset.end),
+      now + preset.duration
+    );
 
-  gain.gain.setValueAtTime(0.0001, now);
-  gain.gain.exponentialRampToValueAtTime(preset.volume, now + 0.012);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + preset.duration);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(preset.volume, now + attack);
+    gain.gain.setValueAtTime(preset.volume, releaseStart);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + preset.duration);
 
-  oscillator.connect(gain);
-  gain.connect(context.destination);
-  oscillator.start(now);
-  oscillator.stop(now + preset.duration + 0.02);
+    oscillator.connect(gain);
+    gain.connect(audioMasterGain);
+    oscillator.start(now);
+    oscillator.stop(now + preset.duration + 0.025);
+  }).catch(() => {
+    // Audio is optional. A browser audio restriction should never stop the game.
+  });
 }
 
 function updateSoundUI() {
@@ -213,9 +246,28 @@ function toggleSound() {
   updateSoundUI();
 
   if (soundEnabled) {
-    initAudio();
-    playSound('coin');
+    initAudio().then((context) => {
+      if (context) playSound('test');
+    });
   }
+}
+
+function testSound() {
+  // The explicit click both unlocks audio in browsers and provides a useful sound check.
+  if (!soundEnabled) {
+    soundEnabled = true;
+    saveSoundSetting(soundEnabled);
+    updateSoundUI();
+  }
+
+  initAudio().then((context) => {
+    if (!context) {
+      window.alert('This browser does not support Web Audio. Try an updated Chrome or Edge browser.');
+      return;
+    }
+
+    playSound('test');
+  });
 }
 
 updateSoundUI();
@@ -1149,6 +1201,8 @@ startButton.addEventListener('click', startRun);
 restartButton.addEventListener('click', startRun);
 menuSoundButton.addEventListener('click', toggleSound);
 pauseSoundButton.addEventListener('click', toggleSound);
+menuTestSoundButton.addEventListener('click', testSound);
+pauseTestSoundButton.addEventListener('click', testSound);
 resumeButton.addEventListener('click', resumeGame);
 restartFromPauseButton.addEventListener('click', startRun);
 mainMenuFromPauseButton.addEventListener('click', returnToMainMenu);
