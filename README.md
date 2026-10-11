@@ -7,6 +7,10 @@ A Subway Surfers-inspired 3D endless runner with an Indang, Cavite twist.
 - Three-lane movement
 - Jump over road barriers and slide under overhead obstacles
 - Collect coins and build your score
+- Coin Magnet attracts nearby coins for 10 seconds
+- Shield absorbs one obstacle hit within 12 seconds
+- 2× Score doubles distance and coin points for 10 seconds
+- Floating power-up pickups with active-effect timers
 - Increasing running speed
 - Low-poly runner character with cap, backpack, and animated limb pivots
 - Indang, Cavite welcome signage, roadside lamps, houses, and trees
@@ -15,6 +19,7 @@ A Subway Surfers-inspired 3D endless runner with an Indang, Cavite twist.
 - Synthesized sound effects for coins, jumping, sliding, collisions, and countdown
 - Toggleable sound setting saved in the browser
 - Test Sound button to verify browser audio output
+- Power-up pickup and shield-break sound effects
 - 3-2-1-GO start countdown
 - High score saved in the browser using local storage
 - Restart after a run ends
