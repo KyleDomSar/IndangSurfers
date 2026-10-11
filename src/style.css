@@ -670,3 +670,100 @@ button {
   outline: 3px solid #ffe16d;
   outline-offset: 3px;
 }
+
+
+/* Active power-up HUD */
+.powerup-status {
+  position: absolute;
+  z-index: 4;
+  top: 180px;
+  left: 50%;
+  display: none;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  width: max-content;
+  max-width: calc(100% - 28px);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.powerup-status.has-effects {
+  display: flex;
+}
+
+.powerup-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 33px;
+  padding: 7px 11px;
+  border: 1px solid rgb(255 255 255 / 42%);
+  border-radius: 999px;
+  background: rgb(19 42 57 / 88%);
+  box-shadow: 0 3px 0 rgb(8 23 34 / 22%);
+  color: #fff;
+  font-size: 10px;
+  letter-spacing: 0.7px;
+  white-space: nowrap;
+}
+
+.powerup-badge b {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.powerup-badge strong {
+  color: #ffffff;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.magnet-badge {
+  border-color: rgb(255 102 126 / 68%);
+}
+
+.magnet-badge b {
+  color: #ff8297;
+}
+
+.shield-badge {
+  border-color: rgb(55 199 237 / 72%);
+}
+
+.shield-badge b {
+  color: #67e0ff;
+}
+
+.multiplier-badge {
+  border-color: rgb(175 135 255 / 72%);
+}
+
+.multiplier-badge b {
+  color: #c4a6ff;
+}
+
+@media (max-width: 560px) {
+  .powerup-status {
+    top: 148px;
+    gap: 5px;
+    max-width: calc(100% - 20px);
+  }
+
+  .powerup-badge {
+    gap: 6px;
+    min-height: 29px;
+    padding: 6px 8px;
+    font-size: 9px;
+  }
+
+  .powerup-badge b {
+    font-size: 8px;
+    letter-spacing: 0.5px;
+  }
+
+  .powerup-badge strong {
+    font-size: 10px;
+  }
+}
