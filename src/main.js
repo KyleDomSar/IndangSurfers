@@ -881,6 +881,7 @@ const tricycleSidecarRoofGeometry = new THREE.BoxGeometry(0.82, 0.1, 1.1);
 const tricycleFrontGlassGeometry = new THREE.BoxGeometry(0.57, 0.25, 0.04);
 const tricycleSideGlassGeometry = new THREE.BoxGeometry(0.035, 0.22, 0.42);
 const tricycleHeadlightGeometry = new THREE.BoxGeometry(0.14, 0.14, 0.06);
+const tricycleSideAccentGeometry = new THREE.BoxGeometry(0.045, 0.1, 0.66);
 
 const jeepneyPaints = [
   obstacleMaterials.jeepneyTeal,
@@ -1082,7 +1083,7 @@ function createTricycle(group) {
 
   // A small accent panel makes the sidecar read clearly at a distance.
   addMesh(
-    new THREE.BoxGeometry(0.045, 0.1, 0.66),
+    tricycleSideAccentGeometry,
     obstacleMaterials.tricycleAccent,
     group,
     0.89,
