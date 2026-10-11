@@ -10,6 +10,8 @@ A Subway Surfers-inspired 3D endless runner with an Indang, Cavite twist.
 - Increasing running speed
 - Low-poly roadside scenery
 - Keyboard, swipe, and on-screen controls
+- Main menu, pause, resume, and restart controls
+- High score saved in the browser using local storage
 - Restart after a run ends
 
 ## Controls
@@ -20,6 +22,8 @@ A Subway Surfers-inspired 3D endless runner with an Indang, Cavite twist.
 | Move right | D or Right Arrow |
 | Jump | Space, W, or Up Arrow |
 | Slide | S or Down Arrow |
+| Pause / resume | Escape |
+| Start from the main menu | Enter |
 | Restart after crashing | Enter |
 
 On touch devices, use the on-screen buttons or swipe left/right/up/down.
