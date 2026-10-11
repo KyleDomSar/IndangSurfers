@@ -653,3 +653,20 @@ button {
       0 8px 0 rgb(7 22 33 / 25%);
   }
 }
+
+
+.sound-test-button {
+  border-color: rgb(255 225 109 / 48%);
+  background: rgb(255 225 109 / 9%);
+  color: #ffe9a0;
+}
+
+.sound-test-button:hover {
+  background: rgb(255 225 109 / 16%);
+}
+
+.sound-toggle-button:focus-visible,
+.sound-test-button:focus-visible {
+  outline: 3px solid #ffe16d;
+  outline-offset: 3px;
+}
