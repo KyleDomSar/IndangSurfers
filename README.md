@@ -15,7 +15,9 @@ A Subway Surfers-inspired 3D endless runner with an Indang, Cavite twist.
 - Increasing running speed
 - Low-poly runner character with cap, backpack, and animated limb pivots
 - Indang, Cavite welcome signage, roadside lamps, houses, and trees
-- Procedural 3D traffic inspired by local jeepneys and tricycles, with headlights, windows, wheels, and painted details
+- Procedural 3D traffic inspired by local jeepneys and tricycles, with route signs, grilles, bumpers, rotating wheels, windows, and painted details
+- Visual model polish: backpack seams and pouches, clothing accents, varied tree silhouettes, painted homes, framed windows, and doors
+- Tone-mapped rendering for a richer low-poly presentation without enabling expensive real-time shadows
 - Keyboard, swipe, and on-screen controls
 - Main menu, pause, resume, and restart controls
 - Synthesized sound effects for coins, jumping, sliding, collisions, and countdown
