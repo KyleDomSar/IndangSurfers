@@ -8,7 +8,8 @@ A Subway Surfers-inspired 3D endless runner with an Indang, Cavite twist.
 - Jump over road barriers and slide under overhead obstacles
 - Collect coins and build your score
 - Increasing running speed
-- Low-poly roadside scenery
+- Low-poly runner character with cap, backpack, and animated limb pivots
+- Indang, Cavite welcome signage, roadside lamps, houses, and trees
 - Keyboard, swipe, and on-screen controls
 - Main menu, pause, resume, and restart controls
 - High score saved in the browser using local storage
