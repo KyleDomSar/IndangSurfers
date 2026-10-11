@@ -31,6 +31,8 @@ app.innerHTML = `
       <span>Jump: Space or W | Slide: S</span>
     </div>
 
+    <div class="powerup-status" id="powerupStatus" aria-live="polite"></div>
+
     <div class="location-chip">INDANG, CAVITE</div>
 
     <div class="screen-overlay" id="mainMenu">
@@ -49,6 +51,7 @@ app.innerHTML = `
           <span><b>MOVE</b> A/D or ← →</span>
           <span><b>JUMP</b> Space or ↑</span>
           <span><b>SLIDE</b> S or ↓</span>
+          <small>Power-ups: Coin Magnet, Shield, and 2× Score.</small>
           <small>Press Esc to pause during a run.</small>
         </div>
       </div>
@@ -120,6 +123,7 @@ const menuTestSoundButton = document.querySelector('#menuTestSoundButton');
 const pauseTestSoundButton = document.querySelector('#pauseTestSoundButton');
 const countdownOverlay = document.querySelector('#countdownOverlay');
 const countdownText = document.querySelector('#countdownText');
+const powerupStatusEl = document.querySelector('#powerupStatus');
 
 const HIGH_SCORE_KEY = 'indangSurfersHighScore';
 const SOUND_SETTING_KEY = 'indangSurfersSoundEnabled';
@@ -196,6 +200,10 @@ function playSound(name) {
     go: { start: 620, end: 1240, duration: 0.28, type: 'triangle', volume: 0.16 },
     pause: { start: 480, end: 300, duration: 0.14, type: 'sine', volume: 0.10 },
     resume: { start: 350, end: 680, duration: 0.17, type: 'sine', volume: 0.11 },
+    powerup: { start: 520, end: 1040, duration: 0.24, type: 'triangle', volume: 0.15 },
+    shield: { start: 700, end: 220, duration: 0.32, type: 'sawtooth', volume: 0.14 },
+    magnet: { start: 760, end: 1180, duration: 0.22, type: 'sine', volume: 0.13 },
+    multiplier: { start: 540, end: 920, duration: 0.27, type: 'square', volume: 0.12 },
     test: { start: 540, end: 1080, duration: 0.34, type: 'triangle', volume: 0.17 },
   };
 
@@ -360,6 +368,10 @@ const materials = {
   lampPole: new THREE.MeshStandardMaterial({ color: 0x59656a, metalness: 0.25 }),
   signFrame: new THREE.MeshStandardMaterial({ color: 0xe7c36a, roughness: 0.8 }),
   lampGlow: new THREE.MeshBasicMaterial({ color: 0xffe2a1 }),
+  powerMagnet: new THREE.MeshStandardMaterial({ color: 0xe44b57, metalness: 0.2, roughness: 0.35 }),
+  powerShield: new THREE.MeshStandardMaterial({ color: 0x37c7ed, metalness: 0.45, roughness: 0.25 }),
+  powerMultiplier: new THREE.MeshStandardMaterial({ color: 0x8654e8, metalness: 0.2, roughness: 0.35 }),
+  powerWhite: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 }),
   gold: new THREE.MeshStandardMaterial({
     color: 0xffc928,
     metalness: 0.55,
@@ -918,6 +930,162 @@ let coinDelay = 2.5;
 let coinCount = 0;
 
 // --------------------------------------------------
+// POWER-UPS
+// --------------------------------------------------
+
+const powerups = [];
+const powerupTypes = ['magnet', 'shield', 'multiplier'];
+
+const multiplierTexture = (() => {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 256;
+
+  const context = canvas.getContext('2d');
+  context.fillStyle = '#8654e8';
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.strokeStyle = '#ffffff';
+  context.lineWidth = 10;
+  context.strokeRect(8, 8, canvas.width - 16, canvas.height - 16);
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  context.fillStyle = '#ffffff';
+  context.font = 'bold 108px Arial, sans-serif';
+  context.fillText('2X', 128, 132);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), 4);
+  return texture;
+})();
+
+const multiplierLabelMaterial = new THREE.MeshBasicMaterial({
+  map: multiplierTexture,
+  side: THREE.DoubleSide,
+});
+
+function createPowerupMesh(type) {
+  const group = new THREE.Group();
+
+  if (type === 'magnet') {
+    addMesh(
+      new THREE.TorusGeometry(0.36, 0.12, 8, 18),
+      materials.powerMagnet,
+      group,
+      0,
+      0,
+      0
+    );
+
+    for (const x of [-0.3, 0.3]) {
+      addMesh(
+        new THREE.BoxGeometry(0.18, 0.22, 0.16),
+        materials.powerWhite,
+        group,
+        x,
+        0.24,
+        0
+      );
+    }
+  } else if (type === 'shield') {
+    addMesh(
+      new THREE.IcosahedronGeometry(0.43, 0),
+      materials.powerShield,
+      group,
+      0,
+      0,
+      0
+    );
+
+    const ring = addMesh(
+      new THREE.TorusGeometry(0.47, 0.055, 6, 18),
+      materials.powerWhite,
+      group,
+      0,
+      0,
+      0.02
+    );
+    ring.rotation.z = Math.PI / 5;
+  } else {
+    addMesh(
+      new THREE.BoxGeometry(0.82, 0.82, 0.22),
+      materials.powerMultiplier,
+      group,
+      0,
+      0,
+      0
+    );
+
+    addMesh(
+      new THREE.PlaneGeometry(0.68, 0.68),
+      multiplierLabelMaterial,
+      group,
+      0,
+      0,
+      0.116
+    );
+  }
+
+  group.position.y = 1.45;
+  group.userData.type = type;
+  return group;
+}
+
+let powerupTimer = 0;
+let powerupDelay = 2.5;
+
+function spawnPowerup() {
+  const lane = Math.floor(Math.random() * 3);
+  const type = powerupTypes[Math.floor(Math.random() * powerupTypes.length)];
+  const mesh = createPowerupMesh(type);
+
+  mesh.position.set(laneCenters[lane], 1.45, -82);
+  scene.add(mesh);
+  powerups.push({ mesh, lane, type, baseY: 1.45 });
+  powerupDelay = 8 + Math.random() * 3.5;
+}
+
+function activatePowerup(type) {
+  if (type === 'magnet') {
+    magnetTimer = 10;
+    playSound('magnet');
+  } else if (type === 'shield') {
+    shieldTimer = 12;
+    playSound('shield');
+  } else {
+    multiplierTimer = 10;
+    playSound('multiplier');
+  }
+
+  updatePowerupStatus();
+}
+
+function updatePowerupStatus() {
+  const badges = [];
+
+  if (magnetTimer > 0) {
+    badges.push(
+      `<span class="powerup-badge magnet-badge"><b>MAGNET</b><strong>${Math.ceil(magnetTimer)}s</strong></span>`
+    );
+  }
+
+  if (shieldTimer > 0) {
+    badges.push(
+      `<span class="powerup-badge shield-badge"><b>SHIELD</b><strong>${Math.ceil(shieldTimer)}s</strong></span>`
+    );
+  }
+
+  if (multiplierTimer > 0) {
+    badges.push(
+      `<span class="powerup-badge multiplier-badge"><b>2× SCORE</b><strong>${Math.ceil(multiplierTimer)}s</strong></span>`
+    );
+  }
+
+  powerupStatusEl.innerHTML = badges.join('');
+  powerupStatusEl.classList.toggle('has-effects', badges.length > 0);
+}
+
+// --------------------------------------------------
 // GAME STATE AND CONTROLS
 // --------------------------------------------------
 
@@ -930,6 +1098,9 @@ let lastCountdownLabel = '';
 let score = 0;
 let elapsedTime = 0;
 let speed = 16;
+let magnetTimer = 0;
+let shieldTimer = 0;
+let multiplierTimer = 0;
 let bestScore = loadBestScore();
 
 updateBestScoreUI();
@@ -1158,9 +1329,11 @@ function returnToMainMenu() {
 function resetGame() {
   for (const obstacle of obstacles) scene.remove(obstacle);
   for (const coin of coins) scene.remove(coin.mesh);
+  for (const powerup of powerups) scene.remove(powerup.mesh);
 
   obstacles.length = 0;
   coins.length = 0;
+  powerups.length = 0;
 
   targetLane = 1;
   playerGroup.position.set(0, 0, playerZ);
@@ -1182,6 +1355,13 @@ function resetGame() {
 
   coinTimer = 1;
   coinDelay = 2.5;
+  powerupTimer = 0;
+  powerupDelay = 2.5;
+
+  magnetTimer = 0;
+  shieldTimer = 0;
+  multiplierTimer = 0;
+  updatePowerupStatus();
 
   gameOver = false;
   hasStarted = false;
@@ -1225,9 +1405,15 @@ function updateGame(delta) {
   elapsedTime += delta;
   runTime += delta;
 
+  // Expire temporary power-ups.
+  magnetTimer = Math.max(0, magnetTimer - delta);
+  shieldTimer = Math.max(0, shieldTimer - delta);
+  multiplierTimer = Math.max(0, multiplierTimer - delta);
+  updatePowerupStatus();
+
   // The game gradually gets faster.
   speed = Math.min(25, 16 + elapsedTime * 0.12);
-  score += speed * delta * 2;
+  score += speed * delta * 2 * (multiplierTimer > 0 ? 2 : 1);
 
   scoreEl.textContent = Math.floor(score)
     .toString()
@@ -1314,6 +1500,41 @@ function updateGame(delta) {
     spawnCoinChain();
   }
 
+  // Spawn collectible power-ups.
+  powerupTimer += delta;
+
+  if (powerupTimer >= powerupDelay) {
+    powerupTimer = 0;
+    spawnPowerup();
+  }
+
+  // Move and collect power-ups before obstacle collision checks.
+  for (let i = powerups.length - 1; i >= 0; i--) {
+    const powerup = powerups[i];
+    const mesh = powerup.mesh;
+
+    mesh.position.z += speed * delta;
+    mesh.position.y = powerup.baseY + Math.sin(elapsedTime * 4 + i) * 0.12;
+    mesh.rotation.y += delta * 1.8;
+    mesh.rotation.z = Math.sin(elapsedTime * 2.3 + i) * 0.12;
+
+    const sameLane =
+      Math.abs(playerGroup.position.x - laneCenters[powerup.lane]) < 0.9;
+    const closeEnough = Math.abs(mesh.position.z - playerZ) < 1.35;
+
+    if (sameLane && closeEnough) {
+      activatePowerup(powerup.type);
+      scene.remove(mesh);
+      powerups.splice(i, 1);
+      continue;
+    }
+
+    if (mesh.position.z > playerZ + 5) {
+      scene.remove(mesh);
+      powerups.splice(i, 1);
+    }
+  }
+
   // Move obstacles and check collisions.
   for (let i = obstacles.length - 1; i >= 0; i--) {
     const obstacle = obstacles[i];
@@ -1327,12 +1548,24 @@ function updateGame(delta) {
       Math.abs(obstacle.position.z - playerZ) < 1.05;
 
     if (sameLane && closeEnough) {
+      let hitObstacle = false;
+
       if (obstacle.userData.kind === 'barrier') {
-        if (jumpHeight < 1.22) {
-          finishRun();
-          return;
+        hitObstacle = jumpHeight < 1.22;
+      } else {
+        hitObstacle = slideTime <= 0;
+      }
+
+      if (hitObstacle) {
+        if (shieldTimer > 0) {
+          shieldTimer = 0;
+          scene.remove(obstacle);
+          obstacles.splice(i, 1);
+          playSound('shield');
+          updatePowerupStatus();
+          continue;
         }
-      } else if (slideTime <= 0) {
+
         finishRun();
         return;
       }
@@ -1344,22 +1577,37 @@ function updateGame(delta) {
     }
   }
 
-  // Move and collect coins.
+  // Move and collect coins. The magnet attracts nearby coins across lanes.
   for (let i = coins.length - 1; i >= 0; i--) {
     const coin = coins[i];
     coin.mesh.position.z += speed * delta;
     coin.mesh.rotation.y += delta * 3.5;
 
-    const sameLane =
-      Math.abs(playerGroup.position.x -
-        laneCenters[coin.lane]) < 0.85;
+    if (
+      magnetTimer > 0 &&
+      coin.mesh.position.z < playerZ &&
+      coin.mesh.position.z > playerZ - 20 &&
+      Math.abs(coin.mesh.position.x - playerGroup.position.x) < 5.2
+    ) {
+      coin.mesh.position.x = THREE.MathUtils.damp(
+        coin.mesh.position.x,
+        playerGroup.position.x,
+        7,
+        delta
+      );
+      coin.mesh.position.z += speed * delta * 0.55;
+    }
 
-    const closeEnough =
-      Math.abs(coin.mesh.position.z - playerZ) < 1.3;
+    const sameLane = magnetTimer > 0
+      ? Math.abs(playerGroup.position.x - coin.mesh.position.x) < 0.85
+      : Math.abs(playerGroup.position.x - laneCenters[coin.lane]) < 0.85;
+
+    const closeEnough = Math.abs(coin.mesh.position.z - playerZ) <
+      (magnetTimer > 0 ? 1.8 : 1.3);
 
     if (sameLane && closeEnough) {
       coinCount++;
-      score += 100;
+      score += 100 * (multiplierTimer > 0 ? 2 : 1);
       playSound('coin');
 
       scene.remove(coin.mesh);
