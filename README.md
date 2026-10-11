@@ -14,6 +14,7 @@ A Subway Surfers-inspired 3D endless runner with an Indang, Cavite twist.
 - Main menu, pause, resume, and restart controls
 - Synthesized sound effects for coins, jumping, sliding, collisions, and countdown
 - Toggleable sound setting saved in the browser
+- Test Sound button to verify browser audio output
 - 3-2-1-GO start countdown
 - High score saved in the browser using local storage
 - Restart after a run ends
@@ -28,6 +29,7 @@ A Subway Surfers-inspired 3D endless runner with an Indang, Cavite twist.
 | Slide | S or Down Arrow |
 | Pause / resume | Escape |
 | Toggle sound | Use the Sound button in the menu or pause screen |
+| Test audio | Use the Test Sound button, which also enables sound if muted |
 | Start from the main menu | Enter |
 | Restart after crashing | Enter |
 
