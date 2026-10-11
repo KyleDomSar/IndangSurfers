@@ -618,6 +618,8 @@ window.addEventListener('keydown', (event) => {
     event.preventDefault();
   }
 
+  if (event.repeat) return;
+
   if (event.code === 'Escape') {
     if (isPaused) {
       resumeGame();
@@ -626,8 +628,6 @@ window.addEventListener('keydown', (event) => {
     }
     return;
   }
-
-  if (event.repeat) return;
 
   if (gameOver) {
     if (event.code === 'Enter') startRun();
@@ -700,27 +700,33 @@ renderer.domElement.addEventListener('pointerup', (event) => {
 // COLLISIONS AND RESTART
 // --------------------------------------------------
 
+function recordBestScore() {
+  const currentScore = Math.floor(score);
+
+  if (currentScore > bestScore) {
+    bestScore = currentScore;
+    saveBestScore(bestScore);
+  }
+
+  updateBestScoreUI();
+}
+
 function finishRun() {
   if (gameOver) return;
 
   gameOver = true;
   isPaused = false;
+  recordBestScore();
 
-  const finalScore = Math.floor(score);
-  if (finalScore > bestScore) {
-    bestScore = finalScore;
-    saveBestScore(bestScore);
-  }
-
-  updateBestScoreUI();
   finalMessageEl.textContent =
-    `Score: ${finalScore} | Coins: ${coinCount}`;
+    `Score: ${Math.floor(score)} | Coins: ${coinCount}`;
 
   pauseMenuEl.classList.add('hidden');
   gameOverEl.classList.remove('hidden');
 }
 
 function startRun() {
+  if (hasStarted && !gameOver) recordBestScore();
   resetGame();
   hasStarted = true;
   isPaused = false;
@@ -744,6 +750,7 @@ function resumeGame() {
 }
 
 function returnToMainMenu() {
+  if (hasStarted && !gameOver) recordBestScore();
   resetGame();
   hasStarted = false;
   isPaused = false;
