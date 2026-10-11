@@ -6,6 +6,7 @@ A Subway Surfers-inspired 3D endless runner with an Indang, Cavite twist.
 
 - Three-lane movement
 - Jump over road barriers and slide under overhead obstacles
+- Dodge colorful low-poly jeepneys and Philippine-style tricycles that approach and weave in their lanes
 - Collect coins and build your score
 - Coin Magnet attracts nearby coins for 10 seconds
 - Shield absorbs one obstacle hit within 12 seconds
@@ -14,6 +15,7 @@ A Subway Surfers-inspired 3D endless runner with an Indang, Cavite twist.
 - Increasing running speed
 - Low-poly runner character with cap, backpack, and animated limb pivots
 - Indang, Cavite welcome signage, roadside lamps, houses, and trees
+- Procedural 3D traffic inspired by local jeepneys and tricycles, with headlights, windows, wheels, and painted details
 - Keyboard, swipe, and on-screen controls
 - Main menu, pause, resume, and restart controls
 - Synthesized sound effects for coins, jumping, sliding, collisions, and countdown
