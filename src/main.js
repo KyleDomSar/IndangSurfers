@@ -614,6 +614,9 @@ addMesh(legGeometry, materials.pants, rightLeg, 0, -0.28, 0);
 addMesh(shoeGeometry, materials.shoes, rightLeg, 0, -0.58, 0.08);
 addMesh(shoeSoleGeometry, materials.accent, rightLeg, 0, -0.66, 0.08);
 
+// Face the running direction (negative Z), away from the camera.
+runnerBody.rotation.y = Math.PI;
+
 const laneCenters = [-2.24, 0, 2.24];
 const playerZ = 3.2;
 
