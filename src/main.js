@@ -328,6 +328,8 @@ const renderer = new THREE.WebGLRenderer({
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.08;
 shell.appendChild(renderer.domElement);
 
 // Lighting
@@ -350,9 +352,20 @@ const materials = {
   roadEdge: new THREE.MeshStandardMaterial({ color: 0xe8e7db }),
   lane: new THREE.MeshStandardMaterial({ color: 0xffd65c }),
   trunk: new THREE.MeshStandardMaterial({ color: 0x795238 }),
-  leaves: new THREE.MeshStandardMaterial({ color: 0x367d4d }),
-  house: new THREE.MeshStandardMaterial({ color: 0xf0ca93 }),
-  roof: new THREE.MeshStandardMaterial({ color: 0xa94f3e }),
+  leaves: new THREE.MeshStandardMaterial({ color: 0x367d4d, roughness: 0.92 }),
+  leavesLight: new THREE.MeshStandardMaterial({ color: 0x4d9854, roughness: 0.95 }),
+  leavesDeep: new THREE.MeshStandardMaterial({ color: 0x245d42, roughness: 0.95 }),
+  house: new THREE.MeshStandardMaterial({ color: 0xf0ca93, roughness: 0.88 }),
+  houseCoral: new THREE.MeshStandardMaterial({ color: 0xe9a28a, roughness: 0.9 }),
+  houseMint: new THREE.MeshStandardMaterial({ color: 0xb9d3a4, roughness: 0.9 }),
+  houseLilac: new THREE.MeshStandardMaterial({ color: 0xc6b6d9, roughness: 0.9 }),
+  houseBase: new THREE.MeshStandardMaterial({ color: 0xe9dfc8, roughness: 0.9 }),
+  roof: new THREE.MeshStandardMaterial({ color: 0xa94f3e, roughness: 0.86 }),
+  roofBlue: new THREE.MeshStandardMaterial({ color: 0x4c718b, roughness: 0.86 }),
+  roofGreen: new THREE.MeshStandardMaterial({ color: 0x597b51, roughness: 0.86 }),
+  door: new THREE.MeshStandardMaterial({ color: 0x704b38, roughness: 0.9 }),
+  windowFrame: new THREE.MeshStandardMaterial({ color: 0xf5dfad, roughness: 0.88 }),
+  woodDark: new THREE.MeshStandardMaterial({ color: 0x4a352c, roughness: 0.95 }),
   window: new THREE.MeshStandardMaterial({ color: 0x75c8e8 }),
   orange: new THREE.MeshStandardMaterial({ color: 0xff783b }),
   white: new THREE.MeshStandardMaterial({ color: 0xfff1d5 }),
@@ -361,7 +374,9 @@ const materials = {
   pants: new THREE.MeshStandardMaterial({ color: 0x293d68 }),
   hair: new THREE.MeshStandardMaterial({ color: 0x24252d }),
   shoes: new THREE.MeshStandardMaterial({ color: 0xf3eee1 }),
-  backpack: new THREE.MeshStandardMaterial({ color: 0xe66b35, roughness: 0.8 }),
+  backpack: new THREE.MeshStandardMaterial({ color: 0xe66b35, roughness: 0.82 }),
+  backpackAccent: new THREE.MeshStandardMaterial({ color: 0x9a3f2c, roughness: 0.88 }),
+  shirtAccent: new THREE.MeshStandardMaterial({ color: 0x69c8bf, roughness: 0.82 }),
   accent: new THREE.MeshStandardMaterial({ color: 0xffd65c, roughness: 0.7 }),
   cap: new THREE.MeshStandardMaterial({ color: 0xd84e3f, roughness: 0.75 }),
   eyes: new THREE.MeshStandardMaterial({ color: 0x202a30, roughness: 0.6 }),
@@ -461,6 +476,18 @@ const treeCrownGeometry = new THREE.ConeGeometry(1.05, 2.2, 7);
 const houseBodyGeometry = new THREE.BoxGeometry(1.8, 1.55, 1.6);
 const houseRoofGeometry = new THREE.ConeGeometry(1.35, 0.9, 4);
 const windowGeometry = new THREE.BoxGeometry(0.32, 0.4, 0.045);
+const windowFrameGeometry = new THREE.BoxGeometry(0.43, 0.51, 0.055);
+const windowCrossbarVerticalGeometry = new THREE.BoxGeometry(0.035, 0.4, 0.025);
+const windowCrossbarHorizontalGeometry = new THREE.BoxGeometry(0.32, 0.035, 0.025);
+const houseDoorFrameGeometry = new THREE.BoxGeometry(0.48, 0.94, 0.065);
+const houseDoorGeometry = new THREE.BoxGeometry(0.36, 0.78, 0.035);
+const houseDoorPanelGeometry = new THREE.BoxGeometry(0.23, 0.23, 0.022);
+const houseDoorKnobGeometry = new THREE.SphereGeometry(0.035, 8, 6);
+const houseBaseGeometry = new THREE.BoxGeometry(1.9, 0.14, 1.68);
+const houseEavesGeometry = new THREE.BoxGeometry(1.98, 0.1, 1.74);
+const houseStepGeometry = new THREE.BoxGeometry(0.58, 0.14, 0.34);
+const treeBroadleafGeometry = new THREE.IcosahedronGeometry(0.78, 0);
+const treeBranchGeometry = new THREE.CylinderGeometry(0.075, 0.12, 0.78, 5);
 
 const signTexture = (() => {
   const canvas = document.createElement('canvas');
@@ -562,70 +589,79 @@ function createScenery(side, z) {
       0
     );
   } else if (isHouse) {
-    addMesh(
-      houseBodyGeometry,
-      materials.house,
-      group,
-      0,
-      0.82,
-      0
-    );
+    const wallPalette = [materials.house, materials.houseCoral, materials.houseMint, materials.houseLilac];
+    const roofPalette = [materials.roof, materials.roofBlue, materials.roofGreen];
+    const wallMaterial = wallPalette[Math.floor(Math.random() * wallPalette.length)];
+    const roofMaterial = roofPalette[Math.floor(Math.random() * roofPalette.length)];
 
-    const roof = addMesh(
-      houseRoofGeometry,
-      materials.roof,
-      group,
-      0,
-      2.0,
-      0
-    );
+    addMesh(houseBaseGeometry, materials.houseBase, group, 0, 0.08, 0);
+    addMesh(houseBodyGeometry, wallMaterial, group, 0, 0.82, 0);
+
+    const roof = addMesh(houseRoofGeometry, roofMaterial, group, 0, 2.0, 0);
     roof.rotation.y = Math.PI / 4;
+    addMesh(houseEavesGeometry, roofMaterial, group, 0, 1.58, 0);
 
-    addMesh(
-      windowGeometry,
-      materials.window,
-      group,
-      -0.48,
-      0.95,
-      0.82
-    );
+    addMesh(houseDoorFrameGeometry, materials.windowFrame, group, 0, 0.5, 0.81);
+    addMesh(houseDoorGeometry, materials.door, group, 0, 0.49, 0.858);
+    addMesh(houseDoorPanelGeometry, materials.woodDark, group, 0, 0.61, 0.88);
+    addMesh(houseDoorPanelGeometry, materials.woodDark, group, 0, 0.34, 0.88);
+    addMesh(houseDoorKnobGeometry, materials.signFrame, group, 0.11, 0.48, 0.89);
+    addMesh(houseStepGeometry, materials.houseBase, group, 0, 0.07, 0.99);
 
-    addMesh(
-      windowGeometry,
-      materials.window,
-      group,
-      0.48,
-      0.95,
-      0.82
-    );
+    for (const x of [-0.48, 0.48]) {
+      addMesh(windowFrameGeometry, materials.windowFrame, group, x, 0.95, 0.805);
+      addMesh(windowGeometry, materials.window, group, x, 0.95, 0.842);
+      addMesh(windowCrossbarVerticalGeometry, materials.windowFrame, group, x, 0.95, 0.871);
+      addMesh(windowCrossbarHorizontalGeometry, materials.windowFrame, group, x, 0.95, 0.871);
+    }
   } else {
-    addMesh(
-      treeTrunkGeometry,
-      materials.trunk,
-      group,
-      0,
-      0.75,
-      0
-    );
+    addMesh(treeTrunkGeometry, materials.trunk, group, 0, 0.75, 0);
 
-    addMesh(
-      treeCrownGeometry,
-      materials.leaves,
-      group,
-      0,
-      2.0,
-      0
-    );
+    if (Math.random() < 0.42) {
+      const leafPalette = [materials.leaves, materials.leavesLight, materials.leavesDeep];
+      for (const [x, y, z, scale] of [
+        [-0.42, 1.72, 0.03, 0.86],
+        [0.43, 1.94, -0.02, 0.88],
+        [-0.06, 2.35, 0, 0.92],
+        [0.15, 2.74, -0.03, 0.62],
+      ]) {
+        const crown = addMesh(
+          treeBroadleafGeometry,
+          leafPalette[Math.floor(Math.random() * leafPalette.length)],
+          group,
+          x,
+          y,
+          z
+        );
+        crown.scale.set(scale, scale * 0.96, scale);
+      }
 
-    const upperCrown = addMesh(
-      treeCrownGeometry,
-      materials.leaves,
-      group,
-      0,
-      2.7,
-      0
-    );
-    upperCrown.scale.setScalar(0.7);
+      for (const side of [-1, 1]) {
+        const branch = addMesh(treeBranchGeometry, materials.trunk, group, side * 0.3, 1.18, 0);
+        branch.rotation.z = side * 0.72;
+      }
+    } else {
+      const leafPalette = [materials.leaves, materials.leavesLight, materials.leavesDeep];
+      const lowerCrown = addMesh(
+        treeCrownGeometry,
+        leafPalette[Math.floor(Math.random() * leafPalette.length)],
+        group,
+        0,
+        1.83,
+        0
+      );
+      lowerCrown.scale.setScalar(1 + Math.random() * 0.16);
+
+      const upperCrown = addMesh(
+        treeCrownGeometry,
+        leafPalette[Math.floor(Math.random() * leafPalette.length)],
+        group,
+        0,
+        2.58 + Math.random() * 0.2,
+        0
+      );
+      upperCrown.scale.setScalar(0.66 + Math.random() * 0.12);
+    }
   }
 
   group.position.set(
@@ -672,6 +708,16 @@ addMesh(
   1.48,
   -0.455
 );
+
+addMesh(new THREE.BoxGeometry(0.44, 0.18, 0.045), materials.backpackAccent, runnerBody, 0, 1.52, -0.46);
+addMesh(new THREE.BoxGeometry(0.31, 0.24, 0.045), materials.backpack, runnerBody, 0, 1.21, -0.46);
+addMesh(new THREE.BoxGeometry(0.035, 0.25, 0.025), materials.accent, runnerBody, 0, 1.31, -0.49);
+addMesh(new THREE.BoxGeometry(0.07, 0.055, 0.025), materials.woodDark, runnerBody, 0, 1.42, -0.49);
+for (const side of [-1, 1]) {
+  addMesh(new THREE.BoxGeometry(0.09, 0.23, 0.18), materials.backpackAccent, runnerBody, side * 0.28, 1.22, -0.3);
+  addMesh(new THREE.BoxGeometry(0.075, 0.52, 0.035), materials.backpack, runnerBody, side * 0.21, 1.31, -0.235);
+  addMesh(new THREE.BoxGeometry(0.15, 0.07, 0.025), materials.shirtAccent, runnerBody, side * 0.23, 1.48, -0.34);
+}
 
 addMesh(
   new THREE.CylinderGeometry(0.34, 0.42, 0.95, 8),
@@ -747,6 +793,11 @@ addMesh(
   0.16
 );
 
+addMesh(new THREE.BoxGeometry(0.17, 0.045, 0.025), materials.backpackAccent, runnerBody, 0, 2.045, -0.255);
+for (const side of [-1, 1]) {
+  addMesh(new THREE.SphereGeometry(0.105, 8, 6), materials.hair, runnerBody, side * 0.235, 1.89, -0.035);
+}
+
 for (const eyeX of [-0.095, 0.095]) {
   addMesh(
     new THREE.SphereGeometry(0.035, 6, 5),
@@ -759,6 +810,8 @@ for (const eyeX of [-0.095, 0.095]) {
 }
 
 const armGeometry = new THREE.CylinderGeometry(0.12, 0.15, 0.65, 6);
+const armSleeveGeometry = new THREE.CylinderGeometry(0.155, 0.145, 0.25, 8);
+const wristBandGeometry = new THREE.CylinderGeometry(0.132, 0.132, 0.075, 8);
 const legGeometry = new THREE.CylinderGeometry(0.15, 0.17, 0.62, 6);
 const shoeGeometry = new THREE.BoxGeometry(0.34, 0.18, 0.48);
 const shoeSoleGeometry = new THREE.BoxGeometry(0.35, 0.055, 0.49);
@@ -768,11 +821,15 @@ const leftArm = new THREE.Group();
 leftArm.position.set(-0.47, 1.48, 0);
 runnerBody.add(leftArm);
 addMesh(armGeometry, materials.skin, leftArm, 0, -0.22, 0);
+addMesh(armSleeveGeometry, materials.shirt, leftArm, 0, -0.035, 0);
+addMesh(wristBandGeometry, materials.accent, leftArm, 0, -0.41, 0);
 
 const rightArm = new THREE.Group();
 rightArm.position.set(0.47, 1.48, 0);
 runnerBody.add(rightArm);
 addMesh(armGeometry, materials.skin, rightArm, 0, -0.22, 0);
+addMesh(armSleeveGeometry, materials.shirt, rightArm, 0, -0.035, 0);
+addMesh(wristBandGeometry, materials.accent, rightArm, 0, -0.41, 0);
 
 // Pivot legs at the hips, with shoes attached to each leg.
 const leftLeg = new THREE.Group();
@@ -781,6 +838,8 @@ runnerBody.add(leftLeg);
 addMesh(legGeometry, materials.pants, leftLeg, 0, -0.28, 0);
 addMesh(shoeGeometry, materials.shoes, leftLeg, 0, -0.58, 0.08);
 addMesh(shoeSoleGeometry, materials.accent, leftLeg, 0, -0.66, 0.08);
+addMesh(new THREE.BoxGeometry(0.22, 0.12, 0.035), materials.pants, leftLeg, 0, -0.25, -0.15);
+addMesh(new THREE.BoxGeometry(0.22, 0.055, 0.03), materials.white, leftLeg, 0, -0.58, -0.17);
 
 const rightLeg = new THREE.Group();
 rightLeg.position.set(0.2, 0.72, 0);
@@ -788,6 +847,8 @@ runnerBody.add(rightLeg);
 addMesh(legGeometry, materials.pants, rightLeg, 0, -0.28, 0);
 addMesh(shoeGeometry, materials.shoes, rightLeg, 0, -0.58, 0.08);
 addMesh(shoeSoleGeometry, materials.accent, rightLeg, 0, -0.66, 0.08);
+addMesh(new THREE.BoxGeometry(0.22, 0.12, 0.035), materials.pants, rightLeg, 0, -0.25, -0.15);
+addMesh(new THREE.BoxGeometry(0.22, 0.055, 0.03), materials.white, rightLeg, 0, -0.58, -0.17);
 
 // Face the running direction (negative Z), away from the camera.
 runnerBody.rotation.y = Math.PI;
@@ -870,6 +931,14 @@ const jeepneySideStripeGeometry = new THREE.BoxGeometry(0.04, 0.12, 1.48);
 const jeepneyGrilleGeometry = new THREE.BoxGeometry(0.52, 0.15, 0.045);
 const jeepneyLightGeometry = new THREE.BoxGeometry(0.13, 0.13, 0.05);
 const jeepneyDestinationGeometry = new THREE.BoxGeometry(0.62, 0.11, 0.045);
+const jeepneyRouteLabelGeometry = new THREE.PlaneGeometry(0.54, 0.085);
+const jeepneyGrilleSlatGeometry = new THREE.BoxGeometry(0.035, 0.13, 0.035);
+const jeepneyBumperGeometry = new THREE.BoxGeometry(1.32, 0.12, 0.13);
+const jeepneyPlateGeometry = new THREE.BoxGeometry(0.27, 0.1, 0.035);
+const jeepneyMirrorGeometry = new THREE.BoxGeometry(0.13, 0.075, 0.12);
+const jeepneySideStepGeometry = new THREE.BoxGeometry(0.08, 0.09, 1.24);
+const tricycleBumperGeometry = new THREE.BoxGeometry(0.7, 0.08, 0.08);
+const tricycleExhaustGeometry = new THREE.CylinderGeometry(0.045, 0.055, 0.52, 6);
 const jeepneyRackRailGeometry = new THREE.BoxGeometry(0.055, 0.075, 1.25);
 const jeepneyRackCrossbarGeometry = new THREE.BoxGeometry(1.2, 0.065, 0.06);
 const tricycleBikeBodyGeometry = new THREE.BoxGeometry(0.43, 0.43, 1.02);
@@ -883,6 +952,26 @@ const tricycleSideGlassGeometry = new THREE.BoxGeometry(0.035, 0.22, 0.42);
 const tricycleHeadlightGeometry = new THREE.BoxGeometry(0.14, 0.14, 0.06);
 const tricycleSideAccentGeometry = new THREE.BoxGeometry(0.045, 0.1, 0.66);
 
+const jeepneyRouteLabelMaterial = (() => {
+  const canvas = document.createElement('canvas');
+  canvas.width = 384;
+  canvas.height = 96;
+  const context = canvas.getContext('2d');
+  context.fillStyle = '#f7d45a';
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.strokeStyle = '#24465a';
+  context.lineWidth = 8;
+  context.strokeRect(4, 4, canvas.width - 8, canvas.height - 8);
+  context.fillStyle = '#18394d';
+  context.font = 'bold 50px Arial, sans-serif';
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  context.fillText('INDANG', canvas.width / 2, canvas.height / 2 + 2);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
+})();
+
 const jeepneyPaints = [
   obstacleMaterials.jeepneyTeal,
   obstacleMaterials.jeepneyYellow,
@@ -891,25 +980,16 @@ const jeepneyPaints = [
 ];
 
 function addVehicleWheel(group, x, y, z) {
-  const tire = addMesh(
-    vehicleWheelGeometry,
-    obstacleMaterials.tire,
-    group,
-    x,
-    y,
-    z
-  );
-  tire.rotation.z = Math.PI / 2;
+  const wheelAssembly = new THREE.Group();
+  wheelAssembly.position.set(x, y, z);
+  group.add(wheelAssembly);
 
-  const rim = addMesh(
-    vehicleRimGeometry,
-    obstacleMaterials.rim,
-    group,
-    x,
-    y,
-    z
-  );
+  const tire = addMesh(vehicleWheelGeometry, obstacleMaterials.tire, wheelAssembly, 0, 0, 0);
+  tire.rotation.z = Math.PI / 2;
+  const rim = addMesh(vehicleRimGeometry, obstacleMaterials.rim, wheelAssembly, 0, 0, 0);
   rim.rotation.z = Math.PI / 2;
+
+  if (group.userData.wheels) group.userData.wheels.push(wheelAssembly);
 }
 
 function createJeepney(group) {
@@ -917,183 +997,73 @@ function createJeepney(group) {
 
   addMesh(jeepneyBodyGeometry, paint, group, 0, 0.68, 0);
   addMesh(jeepneyRoofGeometry, paint, group, 0, 1.105, 0.015);
+  addMesh(jeepneyFrontGlassGeometry, obstacleMaterials.glass, group, 0, 0.96, 1.025);
+  addMesh(jeepneyDestinationGeometry, obstacleMaterials.grille, group, 0, 1.205, 1.035);
+  addMesh(jeepneyRouteLabelGeometry, jeepneyRouteLabelMaterial, group, 0, 1.205, 1.061);
+  addMesh(jeepneyGrilleGeometry, obstacleMaterials.grille, group, 0, 0.49, 1.035);
 
-  // The windshield and destination board face the oncoming player.
-  addMesh(
-    jeepneyFrontGlassGeometry,
-    obstacleMaterials.glass,
-    group,
-    0,
-    0.96,
-    -1.025
-  );
-  addMesh(
-    jeepneyDestinationGeometry,
-    obstacleMaterials.grille,
-    group,
-    0,
-    1.205,
-    -1.035
-  );
-  addMesh(
-    jeepneyGrilleGeometry,
-    obstacleMaterials.grille,
-    group,
-    0,
-    0.49,
-    -1.035
-  );
+  for (const x of [-0.18, -0.09, 0, 0.09, 0.18]) {
+    addMesh(jeepneyGrilleSlatGeometry, obstacleMaterials.rim, group, x, 0.49, 1.063);
+  }
+
+  addMesh(jeepneyBumperGeometry, obstacleMaterials.rim, group, 0, 0.32, 1.075);
+  addMesh(jeepneyPlateGeometry, obstacleMaterials.white, group, 0, 0.42, 1.105);
 
   for (const x of [-0.57, 0.57]) {
-    addMesh(
-      jeepneyLightGeometry,
-      obstacleMaterials.headlight,
-      group,
-      x,
-      0.51,
-      -1.04
-    );
+    addMesh(jeepneyLightGeometry, obstacleMaterials.headlight, group, x, 0.51, 1.04);
   }
 
   for (const side of [-1, 1]) {
-    addMesh(
-      jeepneySideStripeGeometry,
-      obstacleMaterials.tricycleAccent,
-      group,
-      side * 0.79,
-      0.66,
-      0.18
-    );
+    addMesh(jeepneyMirrorGeometry, obstacleMaterials.dark, group, side * 0.88, 0.99, 0.83);
+    addMesh(jeepneySideStripeGeometry, obstacleMaterials.tricycleAccent, group, side * 0.79, 0.66, 0.18);
 
     for (const z of [-0.49, 0.02, 0.53]) {
-      addMesh(
-        jeepneySideGlassGeometry,
-        obstacleMaterials.glass,
-        group,
-        side * 0.79,
-        0.94,
-        z
-      );
+      addMesh(jeepneySideGlassGeometry, obstacleMaterials.glass, group, side * 0.79, 0.94, z);
     }
 
     for (const z of [-0.63, 0.63]) {
       addVehicleWheel(group, side * 0.79, 0.3, z);
     }
 
-    addMesh(
-      jeepneyRackRailGeometry,
-      obstacleMaterials.grille,
-      group,
-      side * 0.62,
-      1.23,
-      0.02
-    );
+    addMesh(jeepneyRackRailGeometry, obstacleMaterials.grille, group, side * 0.62, 1.23, 0.02);
+    addMesh(jeepneySideStepGeometry, obstacleMaterials.rim, group, side * 0.81, 0.31, 0.04);
   }
 
   for (const z of [-0.57, 0.59]) {
-    addMesh(
-      jeepneyRackCrossbarGeometry,
-      obstacleMaterials.grille,
-      group,
-      0,
-      1.23,
-      z
-    );
+    addMesh(jeepneyRackCrossbarGeometry, obstacleMaterials.grille, group, 0, 1.23, z);
   }
 }
-
 function createTricycle(group) {
   const paint = Math.random() < 0.5
     ? obstacleMaterials.tricycleBlue
     : obstacleMaterials.tricycleRed;
 
-  // Motorcycle body and front assembly.
   addMesh(tricycleBikeBodyGeometry, paint, group, -0.22, 0.61, 0.08);
-  addMesh(
-    tricycleSeatGeometry,
-    obstacleMaterials.dark,
-    group,
-    -0.22,
-    0.89,
-    0.32
-  );
-  addMesh(
-    tricycleSteeringGeometry,
-    obstacleMaterials.grille,
-    group,
-    -0.22,
-    0.78,
-    -0.47
-  );
-  addMesh(
-    tricycleHandlebarGeometry,
-    obstacleMaterials.grille,
-    group,
-    -0.22,
-    0.91,
-    -0.48
-  );
-  addMesh(
-    tricycleHeadlightGeometry,
-    obstacleMaterials.headlight,
-    group,
-    -0.22,
-    0.72,
-    -0.49
-  );
+  addMesh(tricycleSeatGeometry, obstacleMaterials.dark, group, -0.22, 0.89, -0.12);
+  addMesh(tricycleSteeringGeometry, obstacleMaterials.grille, group, -0.22, 0.78, 0.47);
+  addMesh(tricycleHandlebarGeometry, obstacleMaterials.grille, group, -0.22, 0.91, 0.48);
+  addMesh(tricycleHeadlightGeometry, obstacleMaterials.headlight, group, -0.22, 0.72, 0.49);
 
-  // Sidecar cabin, roof, and windows.
-  addMesh(
-    tricycleSidecarGeometry,
-    paint,
-    group,
-    0.48,
-    0.55,
-    0.17
-  );
-  addMesh(
-    tricycleSidecarRoofGeometry,
-    obstacleMaterials.tricycleAccent,
-    group,
-    0.48,
-    0.91,
-    0.15
-  );
-  addMesh(
-    tricycleFrontGlassGeometry,
-    obstacleMaterials.glass,
-    group,
-    0.48,
-    0.72,
-    -0.39
-  );
-  addMesh(
-    tricycleSideGlassGeometry,
-    obstacleMaterials.glass,
-    group,
-    0.88,
-    0.73,
-    0.16
-  );
+  addMesh(tricycleSidecarGeometry, paint, group, 0.48, 0.55, 0.17);
+  addMesh(tricycleSidecarRoofGeometry, obstacleMaterials.tricycleAccent, group, 0.48, 0.91, 0.15);
+  addMesh(tricycleFrontGlassGeometry, obstacleMaterials.glass, group, 0.48, 0.72, 0.71);
+  addMesh(tricycleSideGlassGeometry, obstacleMaterials.glass, group, 0.88, 0.73, 0.16);
+  addMesh(tricycleSideAccentGeometry, obstacleMaterials.tricycleAccent, group, 0.89, 0.49, 0.18);
+  addMesh(tricycleBumperGeometry, obstacleMaterials.rim, group, 0.48, 0.29, 0.73);
+  addMesh(tricycleExhaustGeometry, obstacleMaterials.dark, group, -0.48, 0.35, -0.08);
 
   for (const z of [-0.55, 0.55]) {
     addVehicleWheel(group, -0.22, 0.25, z);
   }
   addVehicleWheel(group, 0.68, 0.22, 0.38);
 
-  // A small accent panel makes the sidecar read clearly at a distance.
-  addMesh(
-    tricycleSideAccentGeometry,
-    obstacleMaterials.tricycleAccent,
-    group,
-    0.89,
-    0.49,
-    0.18
-  );
+  for (const x of [-0.52, 0.08]) {
+    addMesh(new THREE.BoxGeometry(0.08, 0.07, 0.07), obstacleMaterials.dark, group, x, 1.0, 0.34);
+  }
 }
-
 function createObstacle(lane, kind) {
   const group = new THREE.Group();
+  group.userData.wheels = [];
 
   if (kind === 'barrier') {
     addMesh(
@@ -1836,6 +1806,10 @@ function updateGame(delta) {
   for (let i = obstacles.length - 1; i >= 0; i--) {
     const obstacle = obstacles[i];
     obstacle.position.z += speed * delta;
+
+    if (obstacle.userData.wheels) {
+      for (const wheel of obstacle.userData.wheels) wheel.rotation.x -= speed * delta * 0.72;
+    }
 
     // Vehicles gently weave within their lane as they approach.
     if (obstacle.userData.kind === 'jeepney' || obstacle.userData.kind === 'tricycle') {
