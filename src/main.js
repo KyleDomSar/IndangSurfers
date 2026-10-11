@@ -190,6 +190,13 @@ const materials = {
   pants: new THREE.MeshStandardMaterial({ color: 0x293d68 }),
   hair: new THREE.MeshStandardMaterial({ color: 0x24252d }),
   shoes: new THREE.MeshStandardMaterial({ color: 0xf3eee1 }),
+  backpack: new THREE.MeshStandardMaterial({ color: 0xe66b35, roughness: 0.8 }),
+  accent: new THREE.MeshStandardMaterial({ color: 0xffd65c, roughness: 0.7 }),
+  cap: new THREE.MeshStandardMaterial({ color: 0xd84e3f, roughness: 0.75 }),
+  eyes: new THREE.MeshStandardMaterial({ color: 0x202a30, roughness: 0.6 }),
+  lampPole: new THREE.MeshStandardMaterial({ color: 0x59656a, metalness: 0.25 }),
+  signFrame: new THREE.MeshStandardMaterial({ color: 0xe7c36a, roughness: 0.8 }),
+  lampGlow: new THREE.MeshBasicMaterial({ color: 0xffe2a1 }),
   gold: new THREE.MeshStandardMaterial({
     color: 0xffc928,
     metalness: 0.55,
@@ -280,11 +287,106 @@ const houseBodyGeometry = new THREE.BoxGeometry(1.8, 1.55, 1.6);
 const houseRoofGeometry = new THREE.ConeGeometry(1.35, 0.9, 4);
 const windowGeometry = new THREE.BoxGeometry(0.32, 0.4, 0.045);
 
+const signTexture = (() => {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 256;
+
+  const context = canvas.getContext('2d');
+  context.fillStyle = '#155b45';
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.strokeStyle = '#f5d66f';
+  context.lineWidth = 12;
+  context.strokeRect(12, 12, canvas.width - 24, canvas.height - 24);
+
+  context.textAlign = 'center';
+  context.fillStyle = '#f5d66f';
+  context.font = 'bold 30px Arial, sans-serif';
+  context.fillText('WELCOME TO', 256, 82);
+
+  context.fillStyle = '#ffffff';
+  context.font = 'bold 68px Arial, sans-serif';
+  context.fillText('INDANG', 256, 158);
+
+  context.fillStyle = '#d5eadf';
+  context.font = 'bold 27px Arial, sans-serif';
+  context.fillText('CAVITE', 256, 205);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), 4);
+  return texture;
+})();
+
+const signFaceMaterial = new THREE.MeshStandardMaterial({
+  map: signTexture,
+  roughness: 0.85,
+});
+
 function createScenery(side, z) {
   const group = new THREE.Group();
-  const isHouse = Math.random() < 0.28;
+  const roll = Math.random();
+  const isHouse = roll < 0.25;
+  const isSign = roll >= 0.25 && roll < 0.35;
+  const isLamp = roll >= 0.35 && roll < 0.46;
 
-  if (isHouse) {
+  if (isSign) {
+    for (const x of [-0.82, 0.82]) {
+      addMesh(
+        new THREE.BoxGeometry(0.12, 2.05, 0.14),
+        materials.trunk,
+        group,
+        x,
+        1.05,
+        0
+      );
+    }
+
+    addMesh(
+      new THREE.BoxGeometry(2.25, 1.12, 0.16),
+      materials.signFrame,
+      group,
+      0,
+      2.3,
+      0
+    );
+
+    addMesh(
+      new THREE.PlaneGeometry(2.08, 0.91),
+      signFaceMaterial,
+      group,
+      0,
+      2.3,
+      0.086
+    );
+  } else if (isLamp) {
+    addMesh(
+      new THREE.CylinderGeometry(0.07, 0.11, 3.5, 6),
+      materials.lampPole,
+      group,
+      0,
+      1.75,
+      0
+    );
+
+    addMesh(
+      new THREE.BoxGeometry(0.62, 0.09, 0.11),
+      materials.lampPole,
+      group,
+      0.25,
+      3.38,
+      0
+    );
+
+    addMesh(
+      new THREE.BoxGeometry(0.22, 0.11, 0.28),
+      materials.lampGlow,
+      group,
+      0.48,
+      3.31,
+      0
+    );
+  } else if (isHouse) {
     addMesh(
       houseBodyGeometry,
       materials.house,
@@ -374,58 +476,143 @@ for (const side of [-1, 1]) {
 const playerGroup = new THREE.Group();
 scene.add(playerGroup);
 
-const torso = addMesh(
+const runnerBody = new THREE.Group();
+playerGroup.add(runnerBody);
+
+// Backpack sits behind the runner.
+addMesh(
+  new THREE.BoxGeometry(0.52, 0.62, 0.25),
+  materials.backpack,
+  runnerBody,
+  0,
+  1.3,
+  -0.32
+);
+
+addMesh(
+  new THREE.BoxGeometry(0.32, 0.08, 0.04),
+  materials.accent,
+  runnerBody,
+  0,
+  1.48,
+  -0.455
+);
+
+addMesh(
   new THREE.CylinderGeometry(0.34, 0.42, 0.95, 8),
   materials.shirt,
-  playerGroup,
+  runnerBody,
   0,
   1.2,
   0
 );
 
+// Shirt details and a small chest badge.
+addMesh(
+  new THREE.BoxGeometry(0.48, 0.09, 0.045),
+  materials.accent,
+  runnerBody,
+  0,
+  1.42,
+  0.355
+);
+
+addMesh(
+  new THREE.BoxGeometry(0.17, 0.2, 0.045),
+  materials.white,
+  runnerBody,
+  0.12,
+  1.2,
+  0.365
+);
+
+addMesh(
+  new THREE.BoxGeometry(0.08, 0.12, 0.06),
+  materials.orange,
+  runnerBody,
+  0.12,
+  1.2,
+  0.398
+);
+
+// Head, hair, eyes, and cap.
 addMesh(
   new THREE.SphereGeometry(0.29, 10, 8),
   materials.skin,
-  playerGroup,
+  runnerBody,
   0,
   1.91,
   0
 );
 
-// Hair on top of the head
 addMesh(
   new THREE.SphereGeometry(0.3, 8, 6),
   materials.hair,
-  playerGroup,
+  runnerBody,
   0,
   2.04,
   -0.035
 );
 
+addMesh(
+  new THREE.SphereGeometry(0.29, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2),
+  materials.cap,
+  runnerBody,
+  0,
+  2.07,
+  0
+);
+
+addMesh(
+  new THREE.BoxGeometry(0.43, 0.055, 0.29),
+  materials.cap,
+  runnerBody,
+  0,
+  2.075,
+  0.16
+);
+
+for (const eyeX of [-0.095, 0.095]) {
+  addMesh(
+    new THREE.SphereGeometry(0.035, 6, 5),
+    materials.eyes,
+    runnerBody,
+    eyeX,
+    1.94,
+    0.264
+  );
+}
+
 const armGeometry = new THREE.CylinderGeometry(0.12, 0.15, 0.65, 6);
 const legGeometry = new THREE.CylinderGeometry(0.15, 0.17, 0.62, 6);
 const shoeGeometry = new THREE.BoxGeometry(0.34, 0.18, 0.48);
+const shoeSoleGeometry = new THREE.BoxGeometry(0.35, 0.055, 0.49);
 
-const leftArm = addMesh(
-  armGeometry, materials.skin, playerGroup, -0.47, 1.25, 0
-);
-const rightArm = addMesh(
-  armGeometry, materials.skin, playerGroup, 0.47, 1.25, 0
-);
+// Pivot arms at the shoulders so they swing like actual limbs.
+const leftArm = new THREE.Group();
+leftArm.position.set(-0.47, 1.48, 0);
+runnerBody.add(leftArm);
+addMesh(armGeometry, materials.skin, leftArm, 0, -0.22, 0);
 
-const leftLeg = addMesh(
-  legGeometry, materials.pants, playerGroup, -0.2, 0.47, 0
-);
-const rightLeg = addMesh(
-  legGeometry, materials.pants, playerGroup, 0.2, 0.47, 0
-);
+const rightArm = new THREE.Group();
+rightArm.position.set(0.47, 1.48, 0);
+runnerBody.add(rightArm);
+addMesh(armGeometry, materials.skin, rightArm, 0, -0.22, 0);
 
-addMesh(
-  shoeGeometry, materials.shoes, playerGroup, -0.2, 0.13, 0.08
-);
-addMesh(
-  shoeGeometry, materials.shoes, playerGroup, 0.2, 0.13, 0.08
-);
+// Pivot legs at the hips, with shoes attached to each leg.
+const leftLeg = new THREE.Group();
+leftLeg.position.set(-0.2, 0.72, 0);
+runnerBody.add(leftLeg);
+addMesh(legGeometry, materials.pants, leftLeg, 0, -0.28, 0);
+addMesh(shoeGeometry, materials.shoes, leftLeg, 0, -0.58, 0.08);
+addMesh(shoeSoleGeometry, materials.accent, leftLeg, 0, -0.66, 0.08);
+
+const rightLeg = new THREE.Group();
+rightLeg.position.set(0.2, 0.72, 0);
+runnerBody.add(rightLeg);
+addMesh(legGeometry, materials.pants, rightLeg, 0, -0.28, 0);
+addMesh(shoeGeometry, materials.shoes, rightLeg, 0, -0.58, 0.08);
+addMesh(shoeSoleGeometry, materials.accent, rightLeg, 0, -0.66, 0.08);
 
 const laneCenters = [-2.24, 0, 2.24];
 const playerZ = 3.2;
@@ -864,6 +1051,13 @@ function updateGame(delta) {
   rightArm.rotation.x = -swing;
   leftLeg.rotation.x = -swing;
   rightLeg.rotation.x = swing;
+
+  // A small body bounce and lean make the run feel less mechanical.
+  runnerBody.position.y = slideTime > 0
+    ? 0.04
+    : (isRunning ? Math.abs(Math.sin(runTime * 13)) * 0.045 : 0);
+  runnerBody.rotation.z = isRunning ? Math.sin(runTime * 6.5) * 0.025 : 0;
+  runnerBody.rotation.x = slideTime > 0 ? 0.22 : 0;
 
   // Move the road markings toward the player.
   for (const marker of laneMarkers) {
