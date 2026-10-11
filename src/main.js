@@ -792,6 +792,24 @@ addMesh(shoeSoleGeometry, materials.accent, rightLeg, 0, -0.66, 0.08);
 // Face the running direction (negative Z), away from the camera.
 runnerBody.rotation.y = Math.PI;
 
+// A lightweight wireframe aura appears while the shield is active.
+const shieldAura = addMesh(
+  new THREE.IcosahedronGeometry(1.15, 1),
+  new THREE.MeshBasicMaterial({
+    color: 0x48dcff,
+    wireframe: true,
+    transparent: true,
+    opacity: 0.36,
+    depthWrite: false,
+  }),
+  playerGroup,
+  0,
+  1.1,
+  0
+);
+shieldAura.scale.set(0.68, 1.12, 0.72);
+shieldAura.visible = false;
+
 const laneCenters = [-2.24, 0, 2.24];
 const playerZ = 3.2;
 
@@ -1060,6 +1078,8 @@ function activatePowerup(type) {
   updatePowerupStatus();
 }
 
+let lastPowerupStatusMarkup = '';
+
 function updatePowerupStatus() {
   const badges = [];
 
@@ -1081,8 +1101,12 @@ function updatePowerupStatus() {
     );
   }
 
-  powerupStatusEl.innerHTML = badges.join('');
-  powerupStatusEl.classList.toggle('has-effects', badges.length > 0);
+  const markup = badges.join('');
+  if (markup !== lastPowerupStatusMarkup) {
+    powerupStatusEl.innerHTML = markup;
+    lastPowerupStatusMarkup = markup;
+    powerupStatusEl.classList.toggle('has-effects', badges.length > 0);
+  }
 }
 
 // --------------------------------------------------
@@ -1409,6 +1433,8 @@ function updateGame(delta) {
   magnetTimer = Math.max(0, magnetTimer - delta);
   shieldTimer = Math.max(0, shieldTimer - delta);
   multiplierTimer = Math.max(0, multiplierTimer - delta);
+  shieldAura.visible = shieldTimer > 0;
+  if (shieldAura.visible) shieldAura.rotation.y += delta * 0.85;
   updatePowerupStatus();
 
   // The game gradually gets faster.
